@@ -34,6 +34,7 @@ export default function MyTasksClient({
   const [tab, setTab] = useState<'today' | 'tomorrow'>('today');
   const [items, setItems] = useState<Instance[]>(initial);
   const [showAdd, setShowAdd] = useState(false);
+  const [detail, setDetail] = useState<Instance | null>(null);
 
   const supabase = createClient();
   const filtered = items.filter(
@@ -134,11 +135,16 @@ export default function MyTasksClient({
           <div className="p-8 text-center text-sm text-slate-500">업무가 없습니다.</div>
         )}
         {filtered.map((inst) => (
-          <div key={inst.id} className="p-3 flex items-start gap-3">
+          <div
+            key={inst.id}
+            onClick={() => setDetail(inst)}
+            className="p-3 flex items-start gap-3 cursor-pointer hover:bg-slate-50"
+          >
             <input
               type="checkbox"
               checked={inst.status === 'done'}
               onChange={() => toggle(inst)}
+              onClick={(e) => e.stopPropagation()}
               className="mt-1 h-4 w-4"
             />
             <div className="flex-1 min-w-0">
@@ -172,12 +178,15 @@ export default function MyTasksClient({
                 )}
               </div>
               {inst.memo && (
-                <p className="text-xs text-slate-500 mt-1">{inst.memo}</p>
+                <p className="text-xs text-slate-500 mt-1 whitespace-pre-wrap line-clamp-2">{inst.memo}</p>
               )}
             </div>
             {inst.source === 'external' && (
               <button
-                onClick={() => remove(inst)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  remove(inst);
+                }}
                 className="text-xs text-slate-400 hover:text-red-600"
               >
                 삭제
@@ -195,6 +204,132 @@ export default function MyTasksClient({
           onSubmit={addExternal}
         />
       )}
+
+      {detail && (
+        <DetailDialog
+          inst={detail}
+          onClose={() => setDetail(null)}
+          onSave={async (memo) => {
+            const { error } = await supabase
+              .from('task_instances')
+              .update({ memo: memo || null })
+              .eq('id', detail.id);
+            if (error) {
+              alert('저장 실패: ' + error.message);
+              return;
+            }
+            setItems((arr) =>
+              arr.map((x) => (x.id === detail.id ? { ...x, memo: memo || null } : x))
+            );
+            setDetail(null);
+          }}
+          onToggleStatus={() => toggle(detail)}
+        />
+      )}
+    </div>
+  );
+}
+
+function DetailDialog({
+  inst,
+  onClose,
+  onSave,
+  onToggleStatus,
+}: {
+  inst: Instance;
+  onClose: () => void;
+  onSave: (memo: string) => Promise<void>;
+  onToggleStatus: () => void;
+}) {
+  const [memo, setMemo] = useState(inst.memo ?? '');
+  const [busy, setBusy] = useState(false);
+
+  return (
+    <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 px-4">
+      <div className="bg-white rounded-xl w-full max-w-md p-6 space-y-3 max-h-[90vh] overflow-auto">
+        <div className="flex items-start justify-between gap-2">
+          <h2 className="font-semibold text-base">{inst.title}</h2>
+          <button onClick={onClose} className="text-slate-400 shrink-0">
+            ✕
+          </button>
+        </div>
+
+        <div className="flex flex-wrap gap-1.5">
+          {inst.kind && (
+            <span className="text-xs px-1.5 py-0.5 bg-slate-100 rounded">
+              {KIND_LABEL[inst.kind as Kind] ?? inst.kind}
+            </span>
+          )}
+          {inst.department && (
+            <span className="text-xs px-1.5 py-0.5 bg-blue-50 text-blue-700 rounded">
+              {inst.department}
+            </span>
+          )}
+          {inst.source === 'external' && (
+            <span className="text-xs px-1.5 py-0.5 bg-amber-50 text-amber-700 rounded">
+              외부
+            </span>
+          )}
+          <span
+            className={`text-xs px-1.5 py-0.5 rounded ${
+              inst.status === 'done'
+                ? 'bg-emerald-50 text-emerald-700'
+                : 'bg-slate-100 text-slate-700'
+            }`}
+          >
+            {inst.status === 'done' ? '완료' : '미완료'}
+          </span>
+        </div>
+
+        <dl className="text-xs text-slate-600 space-y-1">
+          <div className="flex gap-2">
+            <dt className="w-16 text-slate-400 shrink-0">마감일</dt>
+            <dd>{inst.due_date}</dd>
+          </div>
+          {inst.linked_dept && (
+            <div className="flex gap-2">
+              <dt className="w-16 text-slate-400 shrink-0">연계부서</dt>
+              <dd>{inst.linked_dept}</dd>
+            </div>
+          )}
+        </dl>
+
+        <div>
+          <label className="block text-xs text-slate-600 mb-1">업무 메모</label>
+          <textarea
+            value={memo}
+            onChange={(e) => setMemo(e.target.value)}
+            rows={6}
+            placeholder="이 업무에 대한 메모를 자유롭게 작성하세요."
+            className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
+          />
+        </div>
+
+        <div className="flex justify-between items-center pt-2">
+          <button
+            onClick={onToggleStatus}
+            className="text-xs px-2.5 py-1.5 border border-slate-300 rounded-md hover:bg-slate-50"
+          >
+            {inst.status === 'done' ? '완료 취소' : '완료 처리'}
+          </button>
+          <div className="flex gap-2">
+            <button onClick={onClose} className="px-3 py-1.5 text-sm text-slate-600">
+              취소
+            </button>
+            <button
+              onClick={async () => {
+                setBusy(true);
+                await onSave(memo);
+                setBusy(false);
+              }}
+              disabled={busy}
+              className="px-3 py-1.5 bg-slate-900 text-white text-sm rounded-md disabled:opacity-50"
+            >
+              {busy ? '저장 중…' : '저장'}
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
