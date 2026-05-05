@@ -2,9 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { DEPARTMENTS } from '@/lib/constants';
+import { DEPARTMENTS, toEmail, padPassword } from '@/lib/constants';
 import { createClient } from '@/lib/supabase/client';
-import { toEmail } from '@/lib/constants';
 
 export default function SetupPage() {
   const router = useRouter();
@@ -29,10 +28,11 @@ export default function SetupPage() {
     e.preventDefault();
     setBusy(true);
     setError(null);
+    const padded = padPassword(password);
     const res = await fetch('/api/bootstrap', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ login_id: loginId, password, name, department }),
+      body: JSON.stringify({ login_id: loginId, password: padded, name, department }),
     });
     if (!res.ok) {
       const j = await res.json().catch(() => ({}));
@@ -41,7 +41,7 @@ export default function SetupPage() {
       return;
     }
     const supabase = createClient();
-    await supabase.auth.signInWithPassword({ email: toEmail(loginId), password });
+    await supabase.auth.signInWithPassword({ email: toEmail(loginId), password: padded });
     router.push('/my-tasks');
     router.refresh();
   }
@@ -70,11 +70,11 @@ export default function SetupPage() {
             onChange={(e) => setLoginId(e.target.value)}
           />
         </Field>
-        <Field label="비밀번호 (6자 이상)">
+        <Field label="비밀번호 (4자 이상)">
           <input
             className="input"
             required
-            minLength={6}
+            minLength={4}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />

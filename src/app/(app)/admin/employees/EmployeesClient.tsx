@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { DEPARTMENTS } from '@/lib/constants';
+import { DEPARTMENTS, padPassword } from '@/lib/constants';
 
 type Employee = {
   id: string;
@@ -130,7 +130,7 @@ function AddDialog({ onClose, onSuccess }: { onClose: () => void; onSuccess: () 
     const res = await fetch('/api/admin/create-employee', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ login_id: loginId, password, name, role, department }),
+      body: JSON.stringify({ login_id: loginId, password: padPassword(password), name, role, department }),
     });
     setBusy(false);
     if (!res.ok) {
@@ -158,7 +158,7 @@ function AddDialog({ onClose, onSuccess }: { onClose: () => void; onSuccess: () 
           className="input"
         />
       </Field>
-      <Field label="비밀번호 (6자 이상)">
+      <Field label="비밀번호 (4자 이상)">
         <input
           type="text"
           value={password}
@@ -207,12 +207,12 @@ function ResetDialog({ target, onClose }: { target: Employee; onClose: () => voi
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   async function submit() {
-    if (password.length < 6) return alert('6자 이상');
+    if (password.length < 4) return alert('4자 이상');
     setBusy(true);
     const res = await fetch('/api/admin/reset-password', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ id: target.id, password }),
+      body: JSON.stringify({ id: target.id, password: padPassword(password) }),
     });
     setBusy(false);
     if (!res.ok) {

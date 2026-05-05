@@ -32,3 +32,8 @@ function toHex(str: string): string {
 // 아이디(한글 포함 모든 문자 허용)를 UTF-8 hex로 인코딩하여
 // auth.users용 결정적 이메일을 생성. 'u' 접두사는 숫자/특수문자 시작 회피.
 export const toEmail = (loginId: string) => `u${toHex(loginId.trim())}@${EMAIL_DOMAIN}`;
+
+// Supabase가 최소 비밀번호 6자를 강제하므로,
+// 사용자에게는 4자 이상만 받고 내부적으로 고정 suffix를 붙여 항상 8자 이상으로 만든다.
+const PASSWORD_PAD = '.tbd2026';
+export const padPassword = (p: string) => p + PASSWORD_PAD;

@@ -16,8 +16,8 @@ export async function POST(req: NextRequest) {
   }
 
   const { id, password } = (await req.json()) as { id: string; password: string };
-  if (!password || password.length < 6) {
-    return NextResponse.json({ error: '비밀번호는 6자 이상' }, { status: 400 });
+  if (!password) {
+    return NextResponse.json({ error: '비밀번호 누락' }, { status: 400 });
   }
 
   const admin = createAdminClient();
