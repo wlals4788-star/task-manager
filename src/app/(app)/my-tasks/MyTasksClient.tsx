@@ -121,79 +121,39 @@ export default function MyTasksClient({
           <span className="text-sm text-slate-500">
             완료 {doneCount}/{filtered.length}
           </span>
-          <button
-            onClick={() => setShowAdd(true)}
-            className="px-3 py-1.5 bg-slate-900 text-white rounded-md text-sm"
-          >
-            + 외부 업무 추가
-          </button>
         </div>
       </div>
 
-      <div className="bg-white border border-slate-200 rounded-lg divide-y divide-slate-100">
-        {filtered.length === 0 && (
-          <div className="p-8 text-center text-sm text-slate-500">업무가 없습니다.</div>
-        )}
-        {filtered.map((inst) => (
-          <div
-            key={inst.id}
-            onClick={() => setDetail(inst)}
-            className="p-3 flex items-start gap-3 cursor-pointer hover:bg-slate-50"
-          >
-            <input
-              type="checkbox"
-              checked={inst.status === 'done'}
-              onChange={() => toggle(inst)}
-              onClick={(e) => e.stopPropagation()}
-              className="mt-1 h-4 w-4"
-            />
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
-                <span
-                  className={`text-sm font-medium ${
-                    inst.status === 'done' ? 'line-through text-slate-400' : ''
-                  }`}
-                >
-                  {inst.title}
-                </span>
-                {inst.kind && (
-                  <span className="text-xs px-1.5 py-0.5 bg-slate-100 rounded">
-                    {KIND_LABEL[inst.kind as Kind] ?? inst.kind}
-                  </span>
-                )}
-                {inst.department && (
-                  <span className="text-xs px-1.5 py-0.5 bg-blue-50 text-blue-700 rounded">
-                    {inst.department}
-                  </span>
-                )}
-                {inst.source === 'external' && (
-                  <span className="text-xs px-1.5 py-0.5 bg-amber-50 text-amber-700 rounded">
-                    외부
-                  </span>
-                )}
-                {inst.linked_dept && (
-                  <span className="text-xs text-slate-500">
-                    연계: {inst.linked_dept}
-                  </span>
-                )}
-              </div>
-              {inst.memo && (
-                <p className="text-xs text-slate-500 mt-1 whitespace-pre-wrap line-clamp-2">{inst.memo}</p>
-              )}
-            </div>
-            {inst.source === 'external' && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  remove(inst);
-                }}
-                className="text-xs text-slate-400 hover:text-red-600"
-              >
-                삭제
-              </button>
-            )}
-          </div>
-        ))}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Column
+          title="상시업무"
+          items={filtered.filter((i) => i.kind === 'standing')}
+          onItemClick={setDetail}
+          onToggle={toggle}
+          onRemove={remove}
+        />
+        <Column
+          title="정기업무"
+          items={filtered.filter((i) => i.kind === 'regular' || i.kind === 'one_time')}
+          onItemClick={setDetail}
+          onToggle={toggle}
+          onRemove={remove}
+        />
+        <Column
+          title="수시업무"
+          items={filtered.filter((i) => i.kind === 'ad_hoc' || !i.kind)}
+          onItemClick={setDetail}
+          onToggle={toggle}
+          onRemove={remove}
+          addButton={
+            <button
+              onClick={() => setShowAdd(true)}
+              className="px-2.5 py-1 bg-slate-900 text-white rounded-md text-xs"
+            >
+              + 추가
+            </button>
+          }
+        />
       </div>
 
       {showAdd && (
@@ -226,6 +186,97 @@ export default function MyTasksClient({
           onToggleStatus={() => toggle(detail)}
         />
       )}
+    </div>
+  );
+}
+
+function Column({
+  title,
+  items,
+  onItemClick,
+  onToggle,
+  onRemove,
+  addButton,
+}: {
+  title: string;
+  items: Instance[];
+  onItemClick: (i: Instance) => void;
+  onToggle: (i: Instance) => void;
+  onRemove: (i: Instance) => void;
+  addButton?: React.ReactNode;
+}) {
+  const done = items.filter((i) => i.status === 'done').length;
+  return (
+    <div className="bg-white border border-slate-200 rounded-lg flex flex-col">
+      <div className="px-3 py-2 flex items-center justify-between border-b border-slate-200 bg-slate-50">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-semibold">{title}</span>
+          <span className="text-xs text-slate-500">
+            {done}/{items.length}
+          </span>
+        </div>
+        {addButton}
+      </div>
+      <div className="divide-y divide-slate-100 flex-1">
+        {items.length === 0 && (
+          <div className="p-6 text-center text-xs text-slate-400">업무 없음</div>
+        )}
+        {items.map((inst) => (
+          <div
+            key={inst.id}
+            onClick={() => onItemClick(inst)}
+            className="p-3 flex items-start gap-2 cursor-pointer hover:bg-slate-50"
+          >
+            <input
+              type="checkbox"
+              checked={inst.status === 'done'}
+              onChange={() => onToggle(inst)}
+              onClick={(e) => e.stopPropagation()}
+              className="mt-1 h-4 w-4 shrink-0"
+            />
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span
+                  className={`text-sm font-medium ${
+                    inst.status === 'done' ? 'line-through text-slate-400' : ''
+                  }`}
+                >
+                  {inst.title}
+                </span>
+                {inst.department && (
+                  <span className="text-xs px-1.5 py-0.5 bg-blue-50 text-blue-700 rounded">
+                    {inst.department}
+                  </span>
+                )}
+                {inst.source === 'external' && (
+                  <span className="text-xs px-1.5 py-0.5 bg-amber-50 text-amber-700 rounded">
+                    외부
+                  </span>
+                )}
+              </div>
+              {inst.linked_dept && (
+                <div className="text-xs text-slate-500 mt-0.5">연계: {inst.linked_dept}</div>
+              )}
+              {inst.memo && (
+                <p className="text-xs text-slate-500 mt-1 whitespace-pre-wrap line-clamp-2">
+                  {inst.memo}
+                </p>
+              )}
+            </div>
+            {inst.source === 'external' && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onRemove(inst);
+                }}
+                className="text-xs text-slate-400 hover:text-red-600"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -360,7 +411,7 @@ function AddExternalDialog({
   return (
     <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 px-4">
       <div className="bg-white rounded-xl w-full max-w-md p-6 space-y-3">
-        <h2 className="font-semibold">외부 업무 추가</h2>
+        <h2 className="font-semibold">수시업무 추가</h2>
         <Input label="업무명" value={title} onChange={setTitle} required />
         <Select
           label="분야"

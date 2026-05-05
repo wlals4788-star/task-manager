@@ -1,7 +1,9 @@
 'use client';
 
+import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { KIND_LABEL, type Kind } from '@/lib/constants';
+import { createClient } from '@/lib/supabase/client';
+import { DEPARTMENTS, KIND_LABEL, type Kind } from '@/lib/constants';
 
 type Employee = { id: string; name: string; department: string[] };
 type Instance = {
@@ -29,6 +31,7 @@ export default function ReviewClient({
 }) {
   const router = useRouter();
   const sp = useSearchParams();
+  const [showAdd, setShowAdd] = useState(false);
 
   function update(params: Record<string, string>) {
     const next = new URLSearchParams(sp);
@@ -45,6 +48,8 @@ export default function ReviewClient({
 
   const totalToday = instances.filter((i) => i.due_date === date).length;
   const doneToday = instances.filter((i) => i.due_date === date && i.status === 'done').length;
+
+  const selectedEmployee = employees.find((e) => e.id === selectedEmp) ?? null;
 
   return (
     <div className="grid grid-cols-[220px_1fr] gap-4">
@@ -77,15 +82,25 @@ export default function ReviewClient({
               className="text-sm border border-slate-200 rounded px-2 py-1"
             />
           </div>
-          <div className="text-right">
-            <div className="text-xs text-slate-500">기준일 진행률</div>
-            <div className="text-lg font-semibold">
-              {doneToday}/{totalToday}{' '}
-              {totalToday > 0 && (
-                <span className="text-sm text-slate-500">
-                  ({Math.round((doneToday / totalToday) * 100)}%)
-                </span>
-              )}
+          <div className="flex items-center gap-4">
+            {selectedEmployee && (
+              <button
+                onClick={() => setShowAdd(true)}
+                className="px-3 py-1.5 bg-slate-900 text-white rounded-md text-sm"
+              >
+                + {selectedEmployee.name}에게 수시업무 부여
+              </button>
+            )}
+            <div className="text-right">
+              <div className="text-xs text-slate-500">기준일 진행률</div>
+              <div className="text-lg font-semibold">
+                {doneToday}/{totalToday}{' '}
+                {totalToday > 0 && (
+                  <span className="text-sm text-slate-500">
+                    ({Math.round((doneToday / totalToday) * 100)}%)
+                  </span>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -148,6 +163,136 @@ export default function ReviewClient({
           </div>
         )}
       </section>
+
+      {showAdd && selectedEmployee && (
+        <AssignDialog
+          assignee={selectedEmployee}
+          defaultDate={date}
+          onClose={() => setShowAdd(false)}
+          onDone={() => {
+            setShowAdd(false);
+            router.refresh();
+          }}
+        />
+      )}
     </div>
+  );
+}
+
+function AssignDialog({
+  assignee,
+  defaultDate,
+  onClose,
+  onDone,
+}: {
+  assignee: Employee;
+  defaultDate: string;
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const supabase = createClient();
+  const [title, setTitle] = useState('');
+  const [department, setDepartment] = useState(assignee.department[0] ?? '인사관리');
+  const [dueDate, setDueDate] = useState(defaultDate);
+  const [linkedDept, setLinkedDept] = useState('');
+  const [memo, setMemo] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  async function submit() {
+    if (!title.trim()) return;
+    setBusy(true);
+    const { error } = await supabase.from('task_instances').insert({
+      assignee_id: assignee.id,
+      title: title.trim(),
+      department,
+      kind: 'ad_hoc',
+      due_date: dueDate,
+      source: 'external',
+      linked_dept: linkedDept || null,
+      memo: memo || null,
+      status: 'todo',
+    });
+    setBusy(false);
+    if (error) {
+      alert('추가 실패: ' + error.message);
+      return;
+    }
+    onDone();
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 px-4">
+      <div className="bg-white rounded-xl w-full max-w-md p-6 space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="font-semibold">{assignee.name}에게 수시업무 부여</h2>
+          <button onClick={onClose} className="text-slate-400">
+            ✕
+          </button>
+        </div>
+        <Field label="업무명">
+          <input
+            className="input"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            autoFocus
+          />
+        </Field>
+        <Field label="분야">
+          <select
+            className="input bg-white"
+            value={department}
+            onChange={(e) => setDepartment(e.target.value)}
+          >
+            {DEPARTMENTS.map((d) => (
+              <option key={d}>{d}</option>
+            ))}
+          </select>
+        </Field>
+        <Field label="마감일">
+          <input
+            type="date"
+            className="input"
+            value={dueDate}
+            onChange={(e) => setDueDate(e.target.value)}
+          />
+        </Field>
+        <Field label="연계부서">
+          <input
+            className="input"
+            value={linkedDept}
+            onChange={(e) => setLinkedDept(e.target.value)}
+          />
+        </Field>
+        <Field label="메모">
+          <textarea
+            className="input"
+            rows={2}
+            value={memo}
+            onChange={(e) => setMemo(e.target.value)}
+          />
+        </Field>
+        <div className="flex justify-end gap-2 pt-2">
+          <button onClick={onClose} className="px-3 py-1.5 text-sm text-slate-600">
+            취소
+          </button>
+          <button
+            onClick={submit}
+            disabled={busy}
+            className="px-3 py-1.5 bg-slate-900 text-white text-sm rounded-md disabled:opacity-50"
+          >
+            {busy ? '추가 중…' : '추가'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="block">
+      <span className="block text-xs text-slate-600 mb-1">{label}</span>
+      {children}
+    </label>
   );
 }
