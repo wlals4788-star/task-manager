@@ -5,8 +5,16 @@ export const KIND_LABEL = {
   regular: '정기',
   ad_hoc: '수시',
   standing: '상시',
+  one_time: '일회성',
 } as const;
 export type Kind = keyof typeof KIND_LABEL;
+
+export const TASK_STATUS_LABEL = {
+  pending: '대기',
+  in_progress: '진행',
+  done: '완료',
+} as const;
+export type TaskStatus = keyof typeof TASK_STATUS_LABEL;
 
 export const FREQUENCY_LABEL = {
   daily: '일',
