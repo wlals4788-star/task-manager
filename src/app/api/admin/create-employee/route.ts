@@ -22,10 +22,10 @@ export async function POST(req: NextRequest) {
     password: string;
     name: string;
     role: 'admin' | 'staff';
-    department: string;
+    department: string[];
   };
 
-  if (!login_id || !password || !name || !role || !department) {
+  if (!login_id || !password || !name || !role || !Array.isArray(department) || department.length === 0) {
     return NextResponse.json({ error: '필수값 누락' }, { status: 400 });
   }
 

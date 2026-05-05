@@ -25,7 +25,7 @@ type Template = {
   active: boolean;
 };
 
-type Employee = { id: string; name: string; department: string };
+type Employee = { id: string; name: string; department: string[] };
 
 export default function TemplatesClient({
   initial,
@@ -315,7 +315,7 @@ function EditDialog({
             <option value="">(미지정)</option>
             {employees.map((e) => (
               <option key={e.id} value={e.id}>
-                {e.name} · {e.department}
+                {e.name} · {e.department.join(', ')}
               </option>
             ))}
           </select>

@@ -3,7 +3,7 @@
 import { useRouter, useSearchParams } from 'next/navigation';
 import { KIND_LABEL, type Kind } from '@/lib/constants';
 
-type Employee = { id: string; name: string; department: string };
+type Employee = { id: string; name: string; department: string[] };
 type Instance = {
   id: string;
   title: string;
@@ -60,7 +60,7 @@ export default function ReviewClient({
           >
             <div className="font-medium">{e.name}</div>
             <div className={`text-xs ${selectedEmp === e.id ? 'text-slate-300' : 'text-slate-500'}`}>
-              {e.department}
+              {e.department.join(', ')}
             </div>
           </button>
         ))}

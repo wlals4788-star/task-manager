@@ -15,7 +15,7 @@ export async function getCurrentEmployee() {
     login_id: string;
     name: string;
     role: 'admin' | 'staff';
-    department: string;
+    department: string[];
   } | null;
 }
 

@@ -11,7 +11,7 @@ export default function Nav({
 }: {
   name: string;
   role: 'admin' | 'staff';
-  department: string;
+  department: string[];
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -56,7 +56,7 @@ export default function Nav({
         </div>
         <div className="flex items-center gap-3 text-sm">
           <span className="text-slate-600">
-            {name} · {department} · {role === 'admin' ? '관리자' : '직원'}
+            {name} · {department.join(', ')} · {role === 'admin' ? '관리자' : '직원'}
           </span>
           <button onClick={logout} className="text-slate-500 hover:text-slate-900">
             로그아웃

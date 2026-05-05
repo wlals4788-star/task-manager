@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
   }
 
   const { login_id, password, name, department } = await req.json();
-  if (!login_id || !password || !name || !department) {
+  if (!login_id || !password || !name || !Array.isArray(department) || department.length === 0) {
     return NextResponse.json({ error: '필수값 누락' }, { status: 400 });
   }
 

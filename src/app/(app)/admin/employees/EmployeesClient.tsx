@@ -9,7 +9,7 @@ type Employee = {
   login_id: string;
   name: string;
   role: 'admin' | 'staff';
-  department: string;
+  department: string[];
 };
 
 export default function EmployeesClient({ initial }: { initial: Employee[] }) {
@@ -60,7 +60,7 @@ export default function EmployeesClient({ initial }: { initial: Employee[] }) {
               <tr key={e.id}>
                 <td className="px-3 py-2">{e.name}</td>
                 <td className="px-3 py-2 text-slate-600">{e.login_id}</td>
-                <td className="px-3 py-2">{e.department}</td>
+                <td className="px-3 py-2">{e.department.join(', ')}</td>
                 <td className="px-3 py-2">
                   <span
                     className={`text-xs px-1.5 py-0.5 rounded ${
@@ -120,12 +120,16 @@ function AddDialog({ onClose, onSuccess }: { onClose: () => void; onSuccess: () 
   const [loginId, setLoginId] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
-  const [department, setDepartment] = useState(DEPARTMENTS[0] as string);
+  const [department, setDepartment] = useState<string[]>([DEPARTMENTS[0]]);
   const [role, setRole] = useState<'admin' | 'staff'>('staff');
   const [busy, setBusy] = useState(false);
 
+  function toggleDept(d: string) {
+    setDepartment((arr) => (arr.includes(d) ? arr.filter((x) => x !== d) : [...arr, d]));
+  }
+
   async function submit() {
-    if (!loginId || !password || !name) return;
+    if (!loginId || !password || !name || department.length === 0) return;
     setBusy(true);
     const res = await fetch('/api/admin/create-employee', {
       method: 'POST',
@@ -166,16 +170,26 @@ function AddDialog({ onClose, onSuccess }: { onClose: () => void; onSuccess: () 
           className="input"
         />
       </Field>
-      <Field label="분야">
-        <select
-          value={department}
-          onChange={(e) => setDepartment(e.target.value)}
-          className="input bg-white"
-        >
-          {DEPARTMENTS.map((d) => (
-            <option key={d}>{d}</option>
-          ))}
-        </select>
+      <Field label="분야 (복수 선택)">
+        <div className="flex flex-wrap gap-2">
+          {DEPARTMENTS.map((d) => {
+            const checked = department.includes(d);
+            return (
+              <button
+                key={d}
+                type="button"
+                onClick={() => toggleDept(d)}
+                className={`px-3 py-1.5 text-sm rounded-md border ${
+                  checked
+                    ? 'bg-slate-900 text-white border-slate-900'
+                    : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
+                }`}
+              >
+                {d}
+              </button>
+            );
+          })}
+        </div>
       </Field>
       <Field label="권한">
         <select

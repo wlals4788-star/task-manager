@@ -32,7 +32,7 @@ export default function SetupPage() {
     const res = await fetch('/api/bootstrap', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ login_id: loginId, password: padded, name, department }),
+      body: JSON.stringify({ login_id: loginId, password: padded, name, department: [department] }),
     });
     if (!res.ok) {
       const j = await res.json().catch(() => ({}));

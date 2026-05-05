@@ -9,7 +9,10 @@ create table if not exists employees (
   login_id text unique not null,
   name text not null,
   role text not null check (role in ('admin','staff')),
-  department text not null check (department in ('인사관리','총무','세무회계','정산','교육')),
+  department text[] not null check (
+    array_length(department, 1) > 0
+    and department <@ array['인사관리','총무','세무회계','정산','교육']::text[]
+  ),
   created_at timestamptz default now()
 );
 

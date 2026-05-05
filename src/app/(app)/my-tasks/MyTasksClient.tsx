@@ -18,7 +18,7 @@ type Instance = {
   memo: string | null;
 };
 
-type Me = { id: string; name: string; department: string };
+type Me = { id: string; name: string; department: string[] };
 
 export default function MyTasksClient({
   me,
@@ -189,7 +189,7 @@ export default function MyTasksClient({
 
       {showAdd && (
         <AddExternalDialog
-          defaultDept={me.department}
+          defaultDept={me.department[0] ?? '인사관리'}
           defaultDate={tab === 'today' ? todayStr : tomorrowStr}
           onClose={() => setShowAdd(false)}
           onSubmit={addExternal}
