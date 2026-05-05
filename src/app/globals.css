@@ -1,0 +1,12 @@
+@import "tailwindcss";
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Apple SD Gothic Neo",
+    "Pretendard", "Noto Sans KR", Arial, sans-serif;
+}
+
+@layer components {
+  .input {
+    @apply w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-slate-400;
+  }
+}
