@@ -21,4 +21,14 @@ export type Frequency = keyof typeof FREQUENCY_LABEL;
 export const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
 
 export const EMAIL_DOMAIN = 'company.local';
-export const toEmail = (loginId: string) => `${loginId}@${EMAIL_DOMAIN}`;
+
+function toHex(str: string): string {
+  const bytes = new TextEncoder().encode(str);
+  return Array.from(bytes)
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+// 아이디(한글 포함 모든 문자 허용)를 UTF-8 hex로 인코딩하여
+// auth.users용 결정적 이메일을 생성. 'u' 접두사는 숫자/특수문자 시작 회피.
+export const toEmail = (loginId: string) => `u${toHex(loginId.trim())}@${EMAIL_DOMAIN}`;

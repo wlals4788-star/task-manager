@@ -153,8 +153,8 @@ function AddDialog({ onClose, onSuccess }: { onClose: () => void; onSuccess: () 
       <Field label="로그인 아이디">
         <input
           value={loginId}
-          onChange={(e) => setLoginId(e.target.value.replace(/[^a-zA-Z0-9._-]/g, ''))}
-          placeholder="영문/숫자만"
+          onChange={(e) => setLoginId(e.target.value)}
+          placeholder="한글/영문/숫자 가능"
           className="input"
         />
       </Field>

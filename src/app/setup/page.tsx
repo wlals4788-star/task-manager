@@ -62,12 +62,12 @@ export default function SetupPage() {
         <Field label="이름">
           <input className="input" required value={name} onChange={(e) => setName(e.target.value)} />
         </Field>
-        <Field label="아이디 (영문/숫자)">
+        <Field label="아이디">
           <input
             className="input"
             required
             value={loginId}
-            onChange={(e) => setLoginId(e.target.value.replace(/[^a-zA-Z0-9._-]/g, ''))}
+            onChange={(e) => setLoginId(e.target.value)}
           />
         </Field>
         <Field label="비밀번호 (6자 이상)">
