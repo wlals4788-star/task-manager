@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { createClient } from '@/lib/supabase/client';
 import { DEPARTMENTS, padPassword } from '@/lib/constants';
 
 type Employee = {
@@ -16,6 +17,7 @@ export default function EmployeesClient({ initial }: { initial: Employee[] }) {
   const router = useRouter();
   const [showAdd, setShowAdd] = useState(false);
   const [resetTarget, setResetTarget] = useState<Employee | null>(null);
+  const [editTarget, setEditTarget] = useState<Employee | null>(null);
 
   async function deleteEmployee(emp: Employee) {
     if (!confirm(`${emp.name} 직원을 삭제합니다. 진행할까요?`)) return;
@@ -57,8 +59,12 @@ export default function EmployeesClient({ initial }: { initial: Employee[] }) {
           </thead>
           <tbody className="divide-y divide-slate-100">
             {initial.map((e) => (
-              <tr key={e.id}>
-                <td className="px-3 py-2">{e.name}</td>
+              <tr
+                key={e.id}
+                onClick={() => setEditTarget(e)}
+                className="cursor-pointer hover:bg-slate-50"
+              >
+                <td className="px-3 py-2 font-medium">{e.name}</td>
                 <td className="px-3 py-2 text-slate-600">{e.login_id}</td>
                 <td className="px-3 py-2">{e.department.join(', ')}</td>
                 <td className="px-3 py-2">
@@ -72,13 +78,19 @@ export default function EmployeesClient({ initial }: { initial: Employee[] }) {
                 </td>
                 <td className="px-3 py-2 text-right space-x-2">
                   <button
-                    onClick={() => setResetTarget(e)}
+                    onClick={(ev) => {
+                      ev.stopPropagation();
+                      setResetTarget(e);
+                    }}
                     className="text-xs text-slate-600 hover:text-slate-900"
                   >
                     비번변경
                   </button>
                   <button
-                    onClick={() => deleteEmployee(e)}
+                    onClick={(ev) => {
+                      ev.stopPropagation();
+                      deleteEmployee(e);
+                    }}
                     className="text-xs text-slate-400 hover:text-red-600"
                   >
                     삭제
@@ -112,7 +124,140 @@ export default function EmployeesClient({ initial }: { initial: Employee[] }) {
           onClose={() => setResetTarget(null)}
         />
       )}
+      {editTarget && (
+        <EditDialog
+          target={editTarget}
+          onClose={() => setEditTarget(null)}
+          onSuccess={() => {
+            setEditTarget(null);
+            router.refresh();
+          }}
+          onResetPassword={() => {
+            setResetTarget(editTarget);
+            setEditTarget(null);
+          }}
+          onDelete={() => {
+            const t = editTarget;
+            setEditTarget(null);
+            deleteEmployee(t);
+          }}
+        />
+      )}
     </div>
+  );
+}
+
+function EditDialog({
+  target,
+  onClose,
+  onSuccess,
+  onResetPassword,
+  onDelete,
+}: {
+  target: Employee;
+  onClose: () => void;
+  onSuccess: () => void;
+  onResetPassword: () => void;
+  onDelete: () => void;
+}) {
+  const supabase = createClient();
+  const [name, setName] = useState(target.name);
+  const [role, setRole] = useState<'admin' | 'staff'>(target.role);
+  const [department, setDepartment] = useState<string[]>(target.department);
+  const [busy, setBusy] = useState(false);
+
+  function toggleDept(d: string) {
+    setDepartment((arr) => (arr.includes(d) ? arr.filter((x) => x !== d) : [...arr, d]));
+  }
+
+  async function save() {
+    if (!name.trim() || department.length === 0) return;
+    setBusy(true);
+    const { error } = await supabase
+      .from('employees')
+      .update({
+        name: name.trim(),
+        role,
+        department,
+      })
+      .eq('id', target.id);
+    setBusy(false);
+    if (error) {
+      alert('저장 실패: ' + error.message);
+      return;
+    }
+    onSuccess();
+  }
+
+  return (
+    <Modal title="직원 정보 수정" onClose={onClose}>
+      <Field label="이름">
+        <input value={name} onChange={(e) => setName(e.target.value)} className="input" />
+      </Field>
+      <Field label="로그인 아이디 (변경 불가)">
+        <input value={target.login_id} disabled className="input bg-slate-50 text-slate-500" />
+      </Field>
+      <Field label="분야 (복수 선택)">
+        <div className="flex flex-wrap gap-2">
+          {DEPARTMENTS.map((d) => {
+            const checked = department.includes(d);
+            return (
+              <button
+                key={d}
+                type="button"
+                onClick={() => toggleDept(d)}
+                className={`px-3 py-1.5 text-sm rounded-md border ${
+                  checked
+                    ? 'bg-slate-900 text-white border-slate-900'
+                    : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
+                }`}
+              >
+                {d}
+              </button>
+            );
+          })}
+        </div>
+      </Field>
+      <Field label="권한">
+        <select
+          value={role}
+          onChange={(e) => setRole(e.target.value as 'admin' | 'staff')}
+          className="input bg-white"
+        >
+          <option value="staff">직원</option>
+          <option value="admin">관리자</option>
+        </select>
+      </Field>
+
+      <div className="flex justify-between items-center pt-3 border-t border-slate-100 mt-3">
+        <div className="flex gap-2">
+          <button
+            onClick={onResetPassword}
+            className="text-xs px-2.5 py-1.5 border border-slate-300 rounded-md hover:bg-slate-50"
+          >
+            비밀번호 변경
+          </button>
+          <button
+            onClick={onDelete}
+            className="text-xs px-2.5 py-1.5 border border-red-200 text-red-600 rounded-md hover:bg-red-50"
+          >
+            직원 삭제
+          </button>
+        </div>
+        <div className="flex gap-2">
+          <button onClick={onClose} className="px-3 py-1.5 text-sm text-slate-600">
+            취소
+          </button>
+          <button
+            onClick={save}
+            disabled={busy}
+            className="px-3 py-1.5 bg-slate-900 text-white text-sm rounded-md disabled:opacity-50"
+          >
+            {busy ? '저장 중…' : '저장'}
+          </button>
+        </div>
+      </div>
+    </Modal>
   );
 }
 
