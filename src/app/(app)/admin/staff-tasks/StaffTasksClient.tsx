@@ -19,6 +19,7 @@ type Instance = {
   source: 'template' | 'external';
   linked_dept: string | null;
   memo: string | null;
+  created_at?: string | null;
 };
 
 export default function StaffTasksClient({
@@ -179,6 +180,7 @@ export default function StaffTasksClient({
             onItemClick={setDetail}
             onToggle={toggle}
             onRemove={remove}
+            todayStr={todayStr}
           />
           <Column
             title="정기업무"
@@ -186,6 +188,7 @@ export default function StaffTasksClient({
             onItemClick={setDetail}
             onToggle={toggle}
             onRemove={remove}
+            todayStr={todayStr}
           />
           <Column
             title="수시업무"
@@ -193,6 +196,7 @@ export default function StaffTasksClient({
             onItemClick={setDetail}
             onToggle={toggle}
             onRemove={remove}
+            todayStr={todayStr}
             addButton={
               <button
                 onClick={() => setShowAdd(true)}
@@ -234,6 +238,7 @@ function Column({
   onToggle,
   onRemove,
   addButton,
+  todayStr,
 }: {
   title: string;
   items: Instance[];
@@ -241,6 +246,7 @@ function Column({
   onToggle: (i: Instance) => void;
   onRemove: (i: Instance) => void;
   addButton?: React.ReactNode;
+  todayStr: string;
 }) {
   const done = items.filter((i) => i.status === 'done').length;
   return (
@@ -258,7 +264,11 @@ function Column({
         {items.length === 0 && (
           <div className="p-6 text-center text-xs text-slate-400">업무 없음</div>
         )}
-        {items.map((inst) => (
+        {items.map((inst) => {
+          const isFreshOneTime =
+            inst.kind === 'one_time' &&
+            inst.created_at?.slice(0, 10) === todayStr;
+          return (
           <div
             key={inst.id}
             onClick={() => onItemClick(inst)}
@@ -274,8 +284,12 @@ function Column({
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1.5 flex-wrap">
                 <span
-                  className={`text-sm font-medium ${
-                    inst.status === 'done' ? 'line-through text-slate-400' : ''
+                  className={`text-sm ${
+                    inst.status === 'done'
+                      ? 'line-through text-slate-400 font-medium'
+                      : isFreshOneTime
+                        ? 'text-blue-600 font-bold'
+                        : 'font-medium'
                   }`}
                 >
                   {inst.title}
@@ -312,7 +326,8 @@ function Column({
               </button>
             )}
           </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
