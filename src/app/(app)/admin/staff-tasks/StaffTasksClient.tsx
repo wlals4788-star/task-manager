@@ -55,10 +55,14 @@ export default function StaffTasksClient({
 
   const selectedEmp = employees.find((e) => e.id === selectedEmpId) ?? null;
 
-  const filtered = items.filter(
-    (i) => i.due_date === (tab === 'today' ? todayStr : tomorrowStr)
+  const activeDate = tab === 'today' ? todayStr : tomorrowStr;
+  const standingItems = items.filter((i) => i.kind === 'standing');
+  const regularItems = items.filter(
+    (i) => (i.kind === 'regular' || i.kind === 'one_time') && i.due_date === activeDate
   );
-  const doneCount = filtered.filter((i) => i.status === 'done').length;
+  const adHocItems = items.filter((i) => i.kind === 'ad_hoc' || !i.kind);
+  const visible = [...standingItems, ...regularItems, ...adHocItems];
+  const doneCount = visible.filter((i) => i.status === 'done').length;
 
   async function toggle(inst: Instance) {
     const newStatus = inst.status === 'done' ? 'todo' : 'done';
@@ -161,7 +165,7 @@ export default function StaffTasksClient({
             ))}
           </div>
           <span className="text-sm text-slate-500">
-            완료 {doneCount}/{filtered.length}
+            완료 {doneCount}/{visible.length}
           </span>
         </div>
       </div>
@@ -176,7 +180,7 @@ export default function StaffTasksClient({
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Column
             title="상시업무"
-            items={filtered.filter((i) => i.kind === 'standing')}
+            items={standingItems}
             onItemClick={setDetail}
             onToggle={toggle}
             onRemove={remove}
@@ -184,7 +188,7 @@ export default function StaffTasksClient({
           />
           <Column
             title="정기업무"
-            items={filtered.filter((i) => i.kind === 'regular' || i.kind === 'one_time')}
+            items={regularItems}
             onItemClick={setDetail}
             onToggle={toggle}
             onRemove={remove}
@@ -192,7 +196,7 @@ export default function StaffTasksClient({
           />
           <Column
             title="수시업무"
-            items={filtered.filter((i) => i.kind === 'ad_hoc' || !i.kind)}
+            items={adHocItems}
             onItemClick={setDetail}
             onToggle={toggle}
             onRemove={remove}

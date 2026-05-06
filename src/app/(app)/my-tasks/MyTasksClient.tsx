@@ -38,9 +38,14 @@ export default function MyTasksClient({
   const [detail, setDetail] = useState<Instance | null>(null);
 
   const supabase = createClient();
-  const filtered = items.filter(
-    (i) => i.due_date === (tab === 'today' ? todayStr : tomorrowStr)
+  const activeDate = tab === 'today' ? todayStr : tomorrowStr;
+  // 컬럼별 필터: 정기는 탭 날짜, 상시·수시는 항상 표시
+  const standingItems = items.filter((i) => i.kind === 'standing');
+  const regularItems = items.filter(
+    (i) => (i.kind === 'regular' || i.kind === 'one_time') && i.due_date === activeDate
   );
+  const adHocItems = items.filter((i) => i.kind === 'ad_hoc' || !i.kind);
+  const visible = [...standingItems, ...regularItems, ...adHocItems];
 
   async function toggle(inst: Instance) {
     const newStatus = inst.status === 'done' ? 'todo' : 'done';
@@ -100,7 +105,7 @@ export default function MyTasksClient({
     await supabase.from('task_instances').delete().eq('id', inst.id);
   }
 
-  const doneCount = filtered.filter((i) => i.status === 'done').length;
+  const doneCount = visible.filter((i) => i.status === 'done').length;
 
   return (
     <div className="space-y-4">
@@ -120,7 +125,7 @@ export default function MyTasksClient({
         </div>
         <div className="flex items-center gap-3">
           <span className="text-sm text-slate-500">
-            완료 {doneCount}/{filtered.length}
+            완료 {doneCount}/{visible.length}
           </span>
         </div>
       </div>
@@ -128,7 +133,7 @@ export default function MyTasksClient({
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Column
           title="상시업무"
-          items={filtered.filter((i) => i.kind === 'standing')}
+          items={standingItems}
           onItemClick={setDetail}
           onToggle={toggle}
           onRemove={remove}
@@ -136,7 +141,7 @@ export default function MyTasksClient({
         />
         <Column
           title="정기업무"
-          items={filtered.filter((i) => i.kind === 'regular' || i.kind === 'one_time')}
+          items={regularItems}
           onItemClick={setDetail}
           onToggle={toggle}
           onRemove={remove}
@@ -144,7 +149,7 @@ export default function MyTasksClient({
         />
         <Column
           title="수시업무"
-          items={filtered.filter((i) => i.kind === 'ad_hoc' || !i.kind)}
+          items={adHocItems}
           onItemClick={setDetail}
           onToggle={toggle}
           onRemove={remove}

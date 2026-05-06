@@ -14,6 +14,9 @@ export default async function StaffTasksPage({
   const sp = await searchParams;
   const supabase = await createClient();
 
+  const todayStr = today();
+  const tomorrowStr = tomorrow();
+
   const { data: employees } = await supabase
     .from('employees')
     .select('id, name, department')
@@ -21,21 +24,34 @@ export default async function StaffTasksPage({
 
   const empId = sp.emp ?? employees?.[0]?.id ?? null;
 
-  // 정기·상시 업무 자동 생성 (오늘/내일)
+  // 정기·상시 인스턴스 자동 생성
   const admin = createAdminClient();
-  await admin.rpc('generate_daily_instances', { target_date: today() });
-  await admin.rpc('generate_daily_instances', { target_date: tomorrow() });
+  await admin.rpc('generate_daily_instances', { target_date: todayStr });
+  await admin.rpc('generate_daily_instances', { target_date: tomorrowStr });
 
   let instances: any[] = [];
   if (empId) {
-    const { data } = await supabase
-      .from('task_instances')
-      .select('*')
-      .eq('assignee_id', empId)
-      .in('due_date', [today(), tomorrow()])
-      .order('kind')
-      .order('created_at');
-    instances = data ?? [];
+    const [{ data: regular }, { data: standing }, { data: adHoc }] = await Promise.all([
+      supabase
+        .from('task_instances')
+        .select('*')
+        .eq('assignee_id', empId)
+        .in('kind', ['regular', 'one_time'])
+        .in('due_date', [todayStr, tomorrowStr]),
+      supabase
+        .from('task_instances')
+        .select('*')
+        .eq('assignee_id', empId)
+        .eq('kind', 'standing')
+        .eq('due_date', todayStr),
+      supabase
+        .from('task_instances')
+        .select('*')
+        .eq('assignee_id', empId)
+        .or('kind.eq.ad_hoc,kind.is.null')
+        .eq('status', 'todo'),
+    ]);
+    instances = [...(regular ?? []), ...(standing ?? []), ...(adHoc ?? [])];
   }
 
   return (
@@ -43,8 +59,8 @@ export default async function StaffTasksPage({
       employees={employees ?? []}
       selectedEmpId={empId}
       initial={instances}
-      todayStr={today()}
-      tomorrowStr={tomorrow()}
+      todayStr={todayStr}
+      tomorrowStr={tomorrowStr}
     />
   );
 }

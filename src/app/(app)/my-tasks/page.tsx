@@ -9,25 +9,46 @@ export default async function MyTasksPage() {
   const me = await requireEmployee();
   const supabase = await createClient();
 
-  // 오늘/내일 정기·상시 인스턴스가 없으면 자동 생성
-  const admin = createAdminClient();
-  await admin.rpc('generate_daily_instances', { target_date: today() });
-  await admin.rpc('generate_daily_instances', { target_date: tomorrow() });
+  const todayStr = today();
+  const tomorrowStr = tomorrow();
 
-  const { data: instances } = await supabase
+  // 정기·상시 인스턴스 자동 생성 (오늘 + 내일)
+  const admin = createAdminClient();
+  await admin.rpc('generate_daily_instances', { target_date: todayStr });
+  await admin.rpc('generate_daily_instances', { target_date: tomorrowStr });
+
+  // 정기 + 일회성: 오늘/내일 due_date
+  const { data: regular } = await supabase
     .from('task_instances')
     .select('*')
     .eq('assignee_id', me.id)
-    .in('due_date', [today(), tomorrow()])
-    .order('kind', { ascending: true })
-    .order('created_at', { ascending: true });
+    .in('kind', ['regular', 'one_time'])
+    .in('due_date', [todayStr, tomorrowStr]);
+
+  // 상시: 오늘 분만 (탭 무관 표시)
+  const { data: standing } = await supabase
+    .from('task_instances')
+    .select('*')
+    .eq('assignee_id', me.id)
+    .eq('kind', 'standing')
+    .eq('due_date', todayStr);
+
+  // 수시(ad_hoc) + 외부추가(kind null): 미완료 전부, 날짜 무관
+  const { data: adHoc } = await supabase
+    .from('task_instances')
+    .select('*')
+    .eq('assignee_id', me.id)
+    .or('kind.eq.ad_hoc,kind.is.null')
+    .eq('status', 'todo');
+
+  const instances = [...(regular ?? []), ...(standing ?? []), ...(adHoc ?? [])];
 
   return (
     <MyTasksClient
       me={me}
-      initial={instances ?? []}
-      todayStr={today()}
-      tomorrowStr={tomorrow()}
+      initial={instances}
+      todayStr={todayStr}
+      tomorrowStr={tomorrowStr}
     />
   );
 }
