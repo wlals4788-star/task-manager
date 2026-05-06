@@ -18,6 +18,7 @@ export default function Nav({
 
   const items: { href: string; label: string; admin?: boolean }[] = [
     { href: '/my-tasks', label: '내 업무' },
+    { href: '/admin/staff-tasks', label: '담당자별 업무', admin: true },
     { href: '/admin/templates', label: '업무 마스터', admin: true },
     { href: '/admin/employees', label: '직원 관리', admin: true },
     { href: '/admin/review', label: '검토', admin: true },
