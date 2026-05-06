@@ -138,14 +138,7 @@ export default function MyTasksClient({
           onToggle={toggle}
           onRemove={remove}
           todayStr={todayStr}
-        />
-        <Column
-          title="정기업무"
-          items={regularItems}
-          onItemClick={setDetail}
-          onToggle={toggle}
-          onRemove={remove}
-          todayStr={todayStr}
+          color="emerald"
         />
         <Column
           title="수시업무"
@@ -154,6 +147,7 @@ export default function MyTasksClient({
           onToggle={toggle}
           onRemove={remove}
           todayStr={todayStr}
+          color="amber"
           addButton={
             <button
               onClick={() => setShowAdd(true)}
@@ -162,6 +156,15 @@ export default function MyTasksClient({
               + 추가
             </button>
           }
+        />
+        <Column
+          title="정기업무"
+          items={regularItems}
+          onItemClick={setDetail}
+          onToggle={toggle}
+          onRemove={remove}
+          todayStr={todayStr}
+          color="violet"
         />
       </div>
 
@@ -199,6 +202,12 @@ export default function MyTasksClient({
   );
 }
 
+const COLOR_MAP: Record<string, { bg: string; text: string; border: string; leftBar: string }> = {
+  emerald: { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200', leftBar: 'border-l-4 border-l-emerald-500' },
+  amber: { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200', leftBar: 'border-l-4 border-l-amber-500' },
+  violet: { bg: 'bg-violet-50', text: 'text-violet-700', border: 'border-violet-200', leftBar: 'border-l-4 border-l-violet-500' },
+};
+
 function Column({
   title,
   items,
@@ -207,6 +216,7 @@ function Column({
   onRemove,
   addButton,
   todayStr,
+  color,
 }: {
   title: string;
   items: Instance[];
@@ -215,13 +225,15 @@ function Column({
   onRemove: (i: Instance) => void;
   addButton?: React.ReactNode;
   todayStr: string;
+  color: 'emerald' | 'amber' | 'violet';
 }) {
+  const c = COLOR_MAP[color];
   const done = items.filter((i) => i.status === 'done').length;
   return (
-    <div className="bg-white border border-slate-200 rounded-lg flex flex-col">
-      <div className="px-3 py-2 flex items-center justify-between border-b border-slate-200 bg-slate-50">
+    <div className={`bg-white border ${c.border} ${c.leftBar} rounded-lg flex flex-col`}>
+      <div className={`px-3 py-2 flex items-center justify-between border-b ${c.border} ${c.bg}`}>
         <div className="flex items-center gap-2">
-          <span className="text-sm font-semibold">{title}</span>
+          <span className={`text-sm font-semibold ${c.text}`}>{title}</span>
           <span className="text-xs text-slate-500">
             {done}/{items.length}
           </span>
