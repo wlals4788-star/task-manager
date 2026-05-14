@@ -46,6 +46,8 @@ export default function Nav({
                 <Link
                   key={it.href}
                   href={it.href}
+                  prefetch={true}
+                  onMouseEnter={() => router.prefetch(it.href)}
                   className={`px-3 py-1.5 rounded-md text-sm ${
                     active ? 'bg-slate-900 text-white' : 'text-slate-700 hover:bg-slate-100'
                   }`}

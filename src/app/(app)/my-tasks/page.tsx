@@ -12,10 +12,12 @@ export default async function MyTasksPage() {
   const todayStr = today();
   const tomorrowStr = tomorrow();
 
-  // 정기·상시 인스턴스 자동 생성 (오늘 + 내일)
+  // 정기·상시 인스턴스 자동 생성 (오늘 + 내일) — 병렬 호출로 latency 절감
   const admin = createAdminClient();
-  await admin.rpc('generate_daily_instances', { target_date: todayStr });
-  await admin.rpc('generate_daily_instances', { target_date: tomorrowStr });
+  await Promise.all([
+    admin.rpc('generate_daily_instances', { target_date: todayStr }),
+    admin.rpc('generate_daily_instances', { target_date: tomorrowStr }),
+  ]);
 
   // 정기 + 일회성: 오늘/내일 due_date
   const { data: regular } = await supabase

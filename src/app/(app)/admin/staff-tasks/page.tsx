@@ -24,10 +24,12 @@ export default async function StaffTasksPage({
 
   const empId = sp.emp ?? employees?.[0]?.id ?? null;
 
-  // 정기·상시 인스턴스 자동 생성
+  // 정기·상시 인스턴스 자동 생성 (병렬)
   const admin = createAdminClient();
-  await admin.rpc('generate_daily_instances', { target_date: todayStr });
-  await admin.rpc('generate_daily_instances', { target_date: tomorrowStr });
+  await Promise.all([
+    admin.rpc('generate_daily_instances', { target_date: todayStr }),
+    admin.rpc('generate_daily_instances', { target_date: tomorrowStr }),
+  ]);
 
   let instances: any[] = [];
   let projectTasks: any[] = [];
