@@ -43,12 +43,21 @@ export default async function MyTasksPage() {
 
   const instances = [...(regular ?? []), ...(standing ?? []), ...(adHoc ?? [])];
 
+  // 본인이 담당자로 지정된 프로젝트 세부업무 (완료 제외)
+  const { data: projectTasks } = await supabase
+    .from('project_tasks')
+    .select('*, projects(id, title, deadline)')
+    .contains('assignee_ids', [me.id])
+    .neq('status', 'done')
+    .order('order_idx');
+
   return (
     <MyTasksClient
       me={me}
       initial={instances}
       todayStr={todayStr}
       tomorrowStr={tomorrowStr}
+      projectTasks={(projectTasks ?? []) as any}
     />
   );
 }

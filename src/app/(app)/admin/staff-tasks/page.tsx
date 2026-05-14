@@ -30,8 +30,9 @@ export default async function StaffTasksPage({
   await admin.rpc('generate_daily_instances', { target_date: tomorrowStr });
 
   let instances: any[] = [];
+  let projectTasks: any[] = [];
   if (empId) {
-    const [{ data: regular }, { data: standing }, { data: adHoc }] = await Promise.all([
+    const [{ data: regular }, { data: standing }, { data: adHoc }, { data: pt }] = await Promise.all([
       supabase
         .from('task_instances')
         .select('*')
@@ -50,8 +51,15 @@ export default async function StaffTasksPage({
         .eq('assignee_id', empId)
         .or('kind.eq.ad_hoc,kind.is.null')
         .eq('status', 'todo'),
+      supabase
+        .from('project_tasks')
+        .select('*, projects(id, title, deadline)')
+        .contains('assignee_ids', [empId])
+        .neq('status', 'done')
+        .order('order_idx'),
     ]);
     instances = [...(regular ?? []), ...(standing ?? []), ...(adHoc ?? [])];
+    projectTasks = pt ?? [];
   }
 
   return (
@@ -61,6 +69,7 @@ export default async function StaffTasksPage({
       initial={instances}
       todayStr={todayStr}
       tomorrowStr={tomorrowStr}
+      projectTasks={projectTasks}
     />
   );
 }

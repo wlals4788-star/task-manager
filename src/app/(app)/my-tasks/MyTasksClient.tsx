@@ -21,19 +21,35 @@ type Instance = {
 
 type Me = { id: string; name: string; department: string[] };
 
+type ProjectTask = {
+  id: string;
+  project_id: string;
+  title: string;
+  status: 'pending' | 'in_progress' | 'done';
+  linked_dept: string | null;
+  linked_dept_contact: string | null;
+  memo: string | null;
+  assignee_ids: string[];
+  order_idx: number;
+  projects?: { id: string; title: string; deadline: string | null } | null;
+};
+
 export default function MyTasksClient({
   me,
   initial,
   todayStr,
   tomorrowStr,
+  projectTasks,
 }: {
   me: Me;
   initial: Instance[];
   todayStr: string;
   tomorrowStr: string;
+  projectTasks: ProjectTask[];
 }) {
   const [tab, setTab] = useState<'today' | 'tomorrow'>('today');
   const [items, setItems] = useState<Instance[]>(initial);
+  const [projTasks, setProjTasks] = useState<ProjectTask[]>(projectTasks);
   const [showAdd, setShowAdd] = useState(false);
   const [detail, setDetail] = useState<Instance | null>(null);
 
@@ -105,6 +121,11 @@ export default function MyTasksClient({
     await supabase.from('task_instances').delete().eq('id', inst.id);
   }
 
+  async function setProjTaskStatus(pt: ProjectTask, status: ProjectTask['status']) {
+    setProjTasks((arr) => arr.map((x) => (x.id === pt.id ? { ...x, status } : x)));
+    await supabase.from('project_tasks').update({ status }).eq('id', pt.id);
+  }
+
   const doneCount = visible.filter((i) => i.status === 'done').length;
 
   return (
@@ -130,7 +151,7 @@ export default function MyTasksClient({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Column
           title="상시업무"
           items={standingItems}
@@ -166,6 +187,7 @@ export default function MyTasksClient({
           todayStr={todayStr}
           color="violet"
         />
+        <ProjectColumn tasks={projTasks} onStatus={setProjTaskStatus} />
       </div>
 
       {showAdd && (
@@ -207,6 +229,88 @@ const COLOR_MAP: Record<string, { bg: string; text: string; border: string; left
   amber: { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200', leftBar: 'border-l-4 border-l-amber-500' },
   violet: { bg: 'bg-violet-50', text: 'text-violet-700', border: 'border-violet-200', leftBar: 'border-l-4 border-l-violet-500' },
 };
+
+const PROJECT_STATUS_LABEL = { pending: '대기', in_progress: '진행', done: '완료' } as const;
+
+function ProjectColumn({
+  tasks,
+  onStatus,
+}: {
+  tasks: ProjectTask[];
+  onStatus: (t: ProjectTask, s: ProjectTask['status']) => void;
+}) {
+  const done = tasks.filter((t) => t.status === 'done').length;
+  const grouped: Record<string, ProjectTask[]> = {};
+  tasks.forEach((t) => {
+    const k = t.projects?.title ?? '(미상)';
+    (grouped[k] ??= []).push(t);
+  });
+  return (
+    <div className="bg-white border border-slate-200 rounded-lg flex flex-col border-l-4 border-l-sky-500">
+      <div className="px-3 py-2 flex items-center justify-between border-b border-slate-200 bg-sky-50">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-semibold text-sky-700">프로젝트업무</span>
+          <span className="text-xs text-slate-500">
+            {done}/{tasks.length}
+          </span>
+        </div>
+      </div>
+      <div className="divide-y divide-slate-100 flex-1">
+        {tasks.length === 0 && (
+          <div className="p-6 text-center text-xs text-slate-400">업무 없음</div>
+        )}
+        {Object.entries(grouped).map(([projTitle, list]) => (
+          <div key={projTitle}>
+            <div className="px-3 py-1.5 bg-slate-50 text-xs font-medium text-slate-600">
+              {projTitle}
+            </div>
+            {list.map((t) => (
+              <div key={t.id} className="p-3 flex items-start gap-2">
+                <select
+                  value={t.status}
+                  onChange={(e) => onStatus(t, e.target.value as ProjectTask['status'])}
+                  className={`text-xs px-1.5 py-0.5 rounded border shrink-0 ${
+                    t.status === 'done'
+                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                      : t.status === 'in_progress'
+                        ? 'bg-amber-50 text-amber-700 border-amber-200'
+                        : 'bg-slate-100 text-slate-600 border-slate-200'
+                  }`}
+                >
+                  {Object.entries(PROJECT_STATUS_LABEL).map(([k, v]) => (
+                    <option key={k} value={k}>
+                      {v}
+                    </option>
+                  ))}
+                </select>
+                <div className="flex-1 min-w-0">
+                  <div
+                    className={`text-sm font-medium ${
+                      t.status === 'done' ? 'line-through text-slate-400' : ''
+                    }`}
+                  >
+                    {t.title}
+                  </div>
+                  {(t.linked_dept || t.linked_dept_contact) && (
+                    <div className="text-xs text-slate-500 mt-0.5">
+                      {t.linked_dept && <>연계: {t.linked_dept}</>}
+                      {t.linked_dept_contact && <> ({t.linked_dept_contact})</>}
+                    </div>
+                  )}
+                  {t.memo && (
+                    <p className="text-xs text-slate-500 mt-1 whitespace-pre-wrap line-clamp-2">
+                      {t.memo}
+                    </p>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 function Column({
   title,
