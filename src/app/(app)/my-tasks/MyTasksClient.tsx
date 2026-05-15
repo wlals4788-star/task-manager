@@ -1,8 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import { DEPARTMENTS, KIND_LABEL, type Kind } from '@/lib/constants';
+import {
+  DEPARTMENTS, KIND_LABEL, FREQUENCY_LABEL, WEEKDAYS,
+  type Kind, type Frequency,
+} from '@/lib/constants';
 
 type Instance = {
   id: string;
@@ -32,7 +36,10 @@ type ProjectTask = {
   assignee_ids: string[];
   order_idx: number;
   projects?: { id: string; title: string; deadline: string | null } | null;
+  created_at?: string | null;
 };
+
+type ProjectRef = { id: string; title: string };
 
 export default function MyTasksClient({
   me,
@@ -40,14 +47,19 @@ export default function MyTasksClient({
   todayStr,
   tomorrowStr,
   projectTasks,
+  projects,
+  linkedDepts,
 }: {
   me: Me;
   initial: Instance[];
   todayStr: string;
   tomorrowStr: string;
   projectTasks: ProjectTask[];
+  projects: ProjectRef[];
+  linkedDepts: string[];
 }) {
-  const [tab, setTab] = useState<'today' | 'tomorrow'>('today');
+  const router = useRouter();
+  const [tab, setTab] = useState<'today' | 'tomorrow' | 'calendar'>('today');
   const [items, setItems] = useState<Instance[]>(initial);
   const [projTasks, setProjTasks] = useState<ProjectTask[]>(projectTasks);
   const [showAdd, setShowAdd] = useState(false);
@@ -132,7 +144,7 @@ export default function MyTasksClient({
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div className="flex gap-1 bg-white rounded-lg p-1 border border-slate-200">
-          {(['today', 'tomorrow'] as const).map((t) => (
+          {(['today', 'tomorrow', 'calendar'] as const).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
@@ -140,63 +152,72 @@ export default function MyTasksClient({
                 tab === t ? 'bg-slate-900 text-white' : 'text-slate-600'
               }`}
             >
-              {t === 'today' ? '오늘' : '내일'}
+              {t === 'today' ? '오늘' : t === 'tomorrow' ? '내일' : '캘린더'}
             </button>
           ))}
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-sm text-slate-500">
-            완료 {doneCount}/{visible.length}
-          </span>
+          {tab !== 'calendar' && (
+            <span className="text-sm text-slate-500">
+              완료 {doneCount}/{visible.length}
+            </span>
+          )}
+          <button
+            onClick={() => setShowAdd(true)}
+            className="px-3 py-1.5 bg-slate-900 text-white rounded-md text-sm"
+          >
+            + 업무 추가
+          </button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Column
-          title="상시업무"
-          items={standingItems}
-          onItemClick={setDetail}
-          onToggle={toggle}
-          onRemove={remove}
-          todayStr={todayStr}
-          color="emerald"
-          hideCheckbox
-        />
-        <Column
-          title="수시업무"
-          items={adHocItems}
-          onItemClick={setDetail}
-          onToggle={toggle}
-          onRemove={remove}
-          todayStr={todayStr}
-          color="amber"
-          addButton={
-            <button
-              onClick={() => setShowAdd(true)}
-              className="px-2.5 py-1 bg-slate-900 text-white rounded-md text-xs"
-            >
-              + 추가
-            </button>
-          }
-        />
-        <Column
-          title="정기업무"
-          items={regularItems}
-          onItemClick={setDetail}
-          onToggle={toggle}
-          onRemove={remove}
-          todayStr={todayStr}
-          color="violet"
-        />
-        <ProjectColumn tasks={projTasks} onStatus={setProjTaskStatus} />
-      </div>
+      {tab === 'calendar' ? (
+        <CalendarView meId={me.id} todayStr={todayStr} />
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <Column
+            title="상시업무"
+            items={standingItems}
+            onItemClick={setDetail}
+            onToggle={toggle}
+            onRemove={remove}
+            todayStr={todayStr}
+            color="emerald"
+            hideCheckbox
+          />
+          <Column
+            title="수시업무"
+            items={adHocItems}
+            onItemClick={setDetail}
+            onToggle={toggle}
+            onRemove={remove}
+            todayStr={todayStr}
+            color="amber"
+          />
+          <Column
+            title="정기업무"
+            items={regularItems}
+            onItemClick={setDetail}
+            onToggle={toggle}
+            onRemove={remove}
+            todayStr={todayStr}
+            color="violet"
+          />
+          <ProjectColumn tasks={projTasks} onStatus={setProjTaskStatus} todayStr={todayStr} />
+        </div>
+      )}
 
       {showAdd && (
-        <AddExternalDialog
-          defaultDept={me.department[0] ?? '인사관리'}
-          defaultDate={tab === 'today' ? todayStr : tomorrowStr}
+        <UnifiedAddDialog
+          me={me}
+          defaultDate={tab === 'tomorrow' ? tomorrowStr : todayStr}
+          projects={projects}
+          linkedDepts={linkedDepts}
           onClose={() => setShowAdd(false)}
-          onSubmit={addExternal}
+          onDone={() => {
+            setShowAdd(false);
+            router.refresh();
+          }}
         />
       )}
 
@@ -236,9 +257,11 @@ const PROJECT_STATUS_LABEL = { pending: '대기', in_progress: '진행', done: '
 function ProjectColumn({
   tasks,
   onStatus,
+  todayStr,
 }: {
   tasks: ProjectTask[];
   onStatus: (t: ProjectTask, s: ProjectTask['status']) => void;
+  todayStr: string;
 }) {
   const done = tasks.filter((t) => t.status === 'done').length;
   const grouped: Record<string, ProjectTask[]> = {};
@@ -286,8 +309,12 @@ function ProjectColumn({
                 </select>
                 <div className="flex-1 min-w-0">
                   <div
-                    className={`text-sm font-medium ${
-                      t.status === 'done' ? 'line-through text-slate-400' : ''
+                    className={`text-sm ${
+                      t.status === 'done'
+                        ? 'line-through text-slate-400 font-medium'
+                        : t.created_at?.slice(0, 10) === todayStr
+                          ? 'text-blue-600 font-bold'
+                          : 'font-medium'
                     }`}
                   >
                     {t.title}
@@ -357,9 +384,7 @@ function Column({
           <div className="p-6 text-center text-xs text-slate-400">업무 없음</div>
         )}
         {items.map((inst) => {
-          const isFreshOneTime =
-            inst.kind === 'one_time' &&
-            inst.created_at?.slice(0, 10) === todayStr;
+          const isFreshlyAdded = inst.created_at?.slice(0, 10) === todayStr;
           return (
           <div
             key={inst.id}
@@ -381,7 +406,7 @@ function Column({
                   className={`text-sm ${
                     inst.status === 'done'
                       ? 'line-through text-slate-400 font-medium'
-                      : isFreshOneTime
+                      : isFreshlyAdded
                         ? 'text-blue-600 font-bold'
                         : 'font-medium'
                   }`}
@@ -535,60 +560,426 @@ function DetailDialog({
   );
 }
 
-function AddExternalDialog({
-  defaultDept,
+function UnifiedAddDialog({
+  me,
   defaultDate,
+  projects,
+  linkedDepts,
   onClose,
-  onSubmit,
+  onDone,
 }: {
-  defaultDept: string;
+  me: Me;
   defaultDate: string;
+  projects: ProjectRef[];
+  linkedDepts: string[];
   onClose: () => void;
-  onSubmit: (f: {
-    title: string;
-    department: string;
-    due_date: string;
-    linked_dept: string;
-    memo: string;
-  }) => void;
+  onDone: () => void;
 }) {
+  const supabase = createClient();
+  type AddKind = 'ad_hoc' | 'standing' | 'regular' | 'one_time' | 'project_task';
+  const [kind, setKind] = useState<AddKind>('ad_hoc');
   const [title, setTitle] = useState('');
-  const [department, setDepartment] = useState(defaultDept);
+  const [department, setDepartment] = useState(me.department[0] ?? '인사관리');
   const [dueDate, setDueDate] = useState(defaultDate);
   const [linkedDept, setLinkedDept] = useState('');
   const [memo, setMemo] = useState('');
+  const [frequency, setFrequency] = useState<Frequency>('daily');
+  const [freqDetail, setFreqDetail] = useState<any>({});
+  const [projectId, setProjectId] = useState<string>(projects[0]?.id ?? '');
+  const [contact, setContact] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  async function ensureLinkedDept() {
+    if (linkedDept.trim() && !linkedDepts.includes(linkedDept.trim())) {
+      await supabase.from('linked_departments').insert({ name: linkedDept.trim() });
+    }
+  }
+
+  async function submit() {
+    if (!title.trim()) return;
+    setBusy(true);
+    await ensureLinkedDept();
+
+    if (kind === 'project_task') {
+      if (!projectId) {
+        alert('프로젝트를 선택하세요.');
+        setBusy(false);
+        return;
+      }
+      const { error } = await supabase.from('project_tasks').insert({
+        project_id: projectId,
+        title: title.trim(),
+        status: 'pending',
+        assignee_ids: [me.id],
+        linked_dept: linkedDept.trim() || null,
+        linked_dept_contact: contact.trim() || null,
+        memo: memo || null,
+      });
+      if (error) {
+        alert('추가 실패: ' + error.message);
+        setBusy(false);
+        return;
+      }
+    } else {
+      // task_templates 추가 (정기/수시/상시/일회성)
+      const payload: any = {
+        department,
+        title: title.trim(),
+        kind,
+        frequency: kind === 'regular' ? frequency : null,
+        frequency_detail:
+          kind === 'regular' ? freqDetail :
+          kind === 'one_time' ? { due_date: dueDate } : {},
+        assignee_ids: [me.id],
+        linked_dept: linkedDept.trim() || null,
+        memo: memo || null,
+        active: true,
+      };
+      const { data: inserted, error } = await supabase
+        .from('task_templates')
+        .insert(payload)
+        .select()
+        .single();
+      if (error) {
+        alert('추가 실패: ' + error.message);
+        setBusy(false);
+        return;
+      }
+      // 수시·일회성은 즉시 인스턴스 1개 생성
+      if (kind === 'ad_hoc' || kind === 'one_time') {
+        await supabase.from('task_instances').insert({
+          template_id: inserted.id,
+          assignee_id: me.id,
+          title: title.trim(),
+          department,
+          kind,
+          due_date: dueDate,
+          source: 'template',
+          linked_dept: linkedDept.trim() || null,
+          memo: memo || null,
+          status: 'todo',
+        });
+      }
+    }
+    setBusy(false);
+    onDone();
+  }
 
   return (
     <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 px-4">
-      <div className="bg-white rounded-xl w-full max-w-md p-6 space-y-3">
-        <h2 className="font-semibold">수시업무 추가</h2>
-        <Input label="업무명" value={title} onChange={setTitle} required />
-        <Select
-          label="분야"
-          value={department}
-          onChange={setDepartment}
-          options={DEPARTMENTS as readonly string[]}
-        />
-        <Input label="마감일" type="date" value={dueDate} onChange={setDueDate} />
-        <Input label="연계부서" value={linkedDept} onChange={setLinkedDept} />
-        <Input label="메모" value={memo} onChange={setMemo} />
-        <div className="flex justify-end gap-2 pt-2">
-          <button onClick={onClose} className="px-3 py-1.5 text-sm text-slate-600">
-            취소
-          </button>
-          <button
-            onClick={() => {
-              if (!title.trim()) return;
-              onSubmit({ title: title.trim(), department, due_date: dueDate, linked_dept: linkedDept, memo });
-            }}
-            className="px-3 py-1.5 bg-slate-900 text-white text-sm rounded-md"
+      <div className="bg-white rounded-xl w-full max-w-md p-6 space-y-3 max-h-[90vh] overflow-auto">
+        <div className="flex items-center justify-between">
+          <h2 className="font-semibold">업무 추가</h2>
+          <button onClick={onClose} className="text-slate-400">✕</button>
+        </div>
+
+        <label className="block">
+          <span className="block text-xs text-slate-600 mb-1">종류</span>
+          <select
+            value={kind}
+            onChange={(e) => setKind(e.target.value as AddKind)}
+            className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm bg-white"
           >
-            추가
+            <option value="ad_hoc">수시업무</option>
+            <option value="standing">상시업무</option>
+            <option value="regular">정기업무</option>
+            <option value="one_time">일회성업무</option>
+            <option value="project_task">프로젝트 세부업무</option>
+          </select>
+        </label>
+
+        <Input label="업무명" value={title} onChange={setTitle} required />
+
+        {kind !== 'project_task' && (
+          <Select
+            label="분야"
+            value={department}
+            onChange={setDepartment}
+            options={DEPARTMENTS as readonly string[]}
+          />
+        )}
+
+        {kind === 'project_task' && (
+          <label className="block">
+            <span className="block text-xs text-slate-600 mb-1">프로젝트</span>
+            <select
+              value={projectId}
+              onChange={(e) => setProjectId(e.target.value)}
+              className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm bg-white"
+            >
+              {projects.length === 0 && <option value="">(프로젝트 없음)</option>}
+              {projects.map((p) => (
+                <option key={p.id} value={p.id}>{p.title}</option>
+              ))}
+            </select>
+          </label>
+        )}
+
+        {kind === 'regular' && (
+          <>
+            <label className="block">
+              <span className="block text-xs text-slate-600 mb-1">주기</span>
+              <select
+                value={frequency}
+                onChange={(e) => { setFrequency(e.target.value as Frequency); setFreqDetail({}); }}
+                className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm bg-white"
+              >
+                {Object.entries(FREQUENCY_LABEL).map(([k, v]) => (
+                  <option key={k} value={k}>{v}</option>
+                ))}
+              </select>
+            </label>
+            {frequency === 'weekly' && (
+              <label className="block">
+                <span className="block text-xs text-slate-600 mb-1">요일</span>
+                <select
+                  value={freqDetail.weekday ?? 1}
+                  onChange={(e) => setFreqDetail({ weekday: parseInt(e.target.value, 10) })}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm bg-white"
+                >
+                  {WEEKDAYS.map((w, i) => (<option key={i} value={i}>{w}요일</option>))}
+                </select>
+              </label>
+            )}
+            {(frequency === 'monthly' || frequency === 'quarterly' || frequency === 'semiannual') && (
+              <Input
+                label="일자 (1~28)"
+                type="number"
+                value={String(freqDetail.day ?? 1)}
+                onChange={(v) => setFreqDetail({ ...freqDetail, day: parseInt(v, 10) || 1 })}
+              />
+            )}
+            {frequency === 'annual' && (
+              <div className="grid grid-cols-2 gap-2">
+                <Input
+                  label="월"
+                  type="number"
+                  value={String(freqDetail.month ?? 1)}
+                  onChange={(v) => setFreqDetail({ ...freqDetail, month: parseInt(v, 10) || 1 })}
+                />
+                <Input
+                  label="일"
+                  type="number"
+                  value={String(freqDetail.day ?? 1)}
+                  onChange={(v) => setFreqDetail({ ...freqDetail, day: parseInt(v, 10) || 1 })}
+                />
+              </div>
+            )}
+          </>
+        )}
+
+        {(kind === 'ad_hoc' || kind === 'one_time') && (
+          <Input label={kind === 'one_time' ? '실행일' : '마감일'} type="date" value={dueDate} onChange={setDueDate} />
+        )}
+
+        <Input label="연계부서" value={linkedDept} onChange={setLinkedDept} />
+        {kind === 'project_task' && (
+          <Input label="연계부서 담당자명" value={contact} onChange={setContact} />
+        )}
+        <Input label="메모" value={memo} onChange={setMemo} />
+
+        <p className="text-xs text-slate-400">담당자: 본인 ({me.name})</p>
+
+        <div className="flex justify-end gap-2 pt-2">
+          <button onClick={onClose} className="px-3 py-1.5 text-sm text-slate-600">취소</button>
+          <button
+            onClick={submit}
+            disabled={busy}
+            className="px-3 py-1.5 bg-slate-900 text-white text-sm rounded-md disabled:opacity-50"
+          >
+            {busy ? '추가 중…' : '추가'}
           </button>
         </div>
       </div>
     </div>
   );
+}
+
+function CalendarView({ meId, todayStr }: { meId: string; todayStr: string }) {
+  const supabase = createClient();
+  const [base, setBase] = useState(() => {
+    const d = new Date(todayStr + 'T00:00:00');
+    return { year: d.getFullYear(), month: d.getMonth() }; // month: 0-11
+  });
+  const [instances, setInstances] = useState<Instance[]>([]);
+  const [projTasks, setProjTasks] = useState<ProjectTask[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+
+  const firstOfMonth = new Date(base.year, base.month, 1);
+  const lastOfMonth = new Date(base.year, base.month + 1, 0);
+  const fromStr = ymd(firstOfMonth);
+  const toStr = ymd(lastOfMonth);
+
+  useEffect(() => {
+    setLoading(true);
+    Promise.all([
+      supabase
+        .from('task_instances')
+        .select('*')
+        .eq('assignee_id', meId)
+        .gte('due_date', fromStr)
+        .lte('due_date', toStr),
+      supabase
+        .from('project_tasks')
+        .select('*, projects(id, title, deadline)')
+        .contains('assignee_ids', [meId]),
+    ]).then(([inst, pt]) => {
+      setInstances((inst.data ?? []) as any);
+      setProjTasks((pt.data ?? []) as any);
+      setLoading(false);
+    });
+  }, [base.year, base.month]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 일자별 그룹핑
+  const byDate: Record<string, { inst: Instance[]; pt: ProjectTask[] }> = {};
+  instances.forEach((i) => {
+    (byDate[i.due_date] ??= { inst: [], pt: [] }).inst.push(i);
+  });
+  projTasks.forEach((t) => {
+    const d = t.projects?.deadline;
+    if (!d) return;
+    if (d < fromStr || d > toStr) return;
+    (byDate[d] ??= { inst: [], pt: [] }).pt.push(t);
+  });
+
+  // 그리드: 1일이 무슨 요일인지부터
+  const firstDow = firstOfMonth.getDay(); // 0=일
+  const daysInMonth = lastOfMonth.getDate();
+  const cells: ({ day: number; date: string } | null)[] = [];
+  for (let i = 0; i < firstDow; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) {
+    const date = ymd(new Date(base.year, base.month, d));
+    cells.push({ day: d, date });
+  }
+  while (cells.length % 7 !== 0) cells.push(null);
+
+  function prevMonth() {
+    const d = new Date(base.year, base.month - 1, 1);
+    setBase({ year: d.getFullYear(), month: d.getMonth() });
+  }
+  function nextMonth() {
+    const d = new Date(base.year, base.month + 1, 1);
+    setBase({ year: d.getFullYear(), month: d.getMonth() });
+  }
+
+  const detail = selectedDate ? byDate[selectedDate] : null;
+
+  return (
+    <div className="bg-white border border-slate-200 rounded-lg p-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <button onClick={prevMonth} className="px-2 py-1 text-sm border border-slate-200 rounded hover:bg-slate-50">‹</button>
+          <select
+            value={base.year}
+            onChange={(e) => setBase({ ...base, year: parseInt(e.target.value, 10) })}
+            className="px-2 py-1 text-sm border border-slate-200 rounded bg-white"
+          >
+            {Array.from({ length: 7 }, (_, i) => new Date().getFullYear() - 3 + i).map((y) => (
+              <option key={y} value={y}>{y}년</option>
+            ))}
+          </select>
+          <select
+            value={base.month}
+            onChange={(e) => setBase({ ...base, month: parseInt(e.target.value, 10) })}
+            className="px-2 py-1 text-sm border border-slate-200 rounded bg-white"
+          >
+            {Array.from({ length: 12 }, (_, i) => i).map((m) => (
+              <option key={m} value={m}>{m + 1}월</option>
+            ))}
+          </select>
+          <button onClick={nextMonth} className="px-2 py-1 text-sm border border-slate-200 rounded hover:bg-slate-50">›</button>
+        </div>
+        {loading && <span className="text-xs text-slate-400">로딩…</span>}
+      </div>
+
+      <div className="grid grid-cols-7 gap-1 text-center text-xs text-slate-500">
+        {['일','월','화','수','목','금','토'].map((w, i) => (
+          <div key={w} className={`py-1 font-medium ${i === 0 ? 'text-rose-500' : i === 6 ? 'text-blue-500' : ''}`}>{w}</div>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-7 gap-1">
+        {cells.map((c, idx) => {
+          if (!c) return <div key={idx} className="h-20 bg-slate-50 rounded" />;
+          const bucket = byDate[c.date];
+          const cnt = (bucket?.inst.length ?? 0) + (bucket?.pt.length ?? 0);
+          const isToday = c.date === todayStr;
+          const dow = idx % 7;
+          return (
+            <button
+              key={idx}
+              onClick={() => setSelectedDate(c.date)}
+              className={`h-20 rounded text-left p-1.5 text-xs hover:bg-slate-50 border ${
+                isToday ? 'border-slate-900 bg-slate-50' : 'border-slate-200'
+              }`}
+            >
+              <div className={`font-medium ${dow === 0 ? 'text-rose-500' : dow === 6 ? 'text-blue-500' : ''}`}>
+                {c.day}
+              </div>
+              {cnt > 0 && (
+                <div className="mt-1 inline-block px-1.5 py-0.5 rounded bg-slate-900 text-white text-[10px]">
+                  {cnt}건
+                </div>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {selectedDate && detail && (
+        <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 px-4">
+          <div className="bg-white rounded-xl w-full max-w-md p-6 space-y-3 max-h-[80vh] overflow-auto">
+            <div className="flex items-center justify-between">
+              <h2 className="font-semibold">{selectedDate} 업무</h2>
+              <button onClick={() => setSelectedDate(null)} className="text-slate-400">✕</button>
+            </div>
+            {detail.inst.length === 0 && detail.pt.length === 0 && (
+              <p className="text-sm text-slate-500">업무 없음</p>
+            )}
+            {detail.inst.map((i) => (
+              <div key={i.id} className="border border-slate-100 rounded p-2 text-sm">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className={i.status === 'done' ? 'line-through text-slate-400' : 'font-medium'}>
+                    {i.title}
+                  </span>
+                  {i.kind && (
+                    <span className="text-xs px-1.5 py-0.5 bg-slate-100 rounded">
+                      {KIND_LABEL[i.kind as Kind] ?? i.kind}
+                    </span>
+                  )}
+                  {i.department && (
+                    <span className="text-xs px-1.5 py-0.5 bg-blue-50 text-blue-700 rounded">{i.department}</span>
+                  )}
+                </div>
+                {i.memo && <p className="text-xs text-slate-500 mt-1">{i.memo}</p>}
+              </div>
+            ))}
+            {detail.pt.map((t) => (
+              <div key={t.id} className="border border-sky-100 rounded p-2 text-sm">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className={t.status === 'done' ? 'line-through text-slate-400' : 'font-medium'}>
+                    {t.title}
+                  </span>
+                  <span className="text-xs px-1.5 py-0.5 bg-sky-50 text-sky-700 rounded">
+                    프로젝트: {t.projects?.title}
+                  </span>
+                </div>
+                {t.memo && <p className="text-xs text-slate-500 mt-1">{t.memo}</p>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ymd(d: Date) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
 }
 
 function Input({

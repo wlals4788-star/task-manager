@@ -53,6 +53,12 @@ export default async function MyTasksPage() {
     .neq('status', 'done')
     .order('order_idx');
 
+  // 통합 추가 모달용 데이터 (프로젝트 목록, 연계부서 마스터)
+  const [{ data: projects }, { data: linkedDepts }] = await Promise.all([
+    supabase.from('projects').select('id, title').order('created_at', { ascending: false }),
+    supabase.from('linked_departments').select('name').order('name'),
+  ]);
+
   return (
     <MyTasksClient
       me={me}
@@ -60,6 +66,8 @@ export default async function MyTasksPage() {
       todayStr={todayStr}
       tomorrowStr={tomorrowStr}
       projectTasks={(projectTasks ?? []) as any}
+      projects={projects ?? []}
+      linkedDepts={(linkedDepts ?? []).map((d: any) => d.name)}
     />
   );
 }
