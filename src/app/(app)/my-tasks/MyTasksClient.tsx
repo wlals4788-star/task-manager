@@ -172,7 +172,7 @@ export default function MyTasksClient({
       </div>
 
       {tab === 'calendar' ? (
-        <CalendarView meId={me.id} todayStr={todayStr} />
+        <CalendarView me={me} todayStr={todayStr} />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <Column
@@ -795,7 +795,15 @@ function UnifiedAddDialog({
   );
 }
 
-function CalendarView({ meId, todayStr }: { meId: string; todayStr: string }) {
+const KIND_STYLE: Record<string, { label: string; bg: string; text: string }> = {
+  standing: { label: '상시', bg: 'bg-emerald-50', text: 'text-emerald-700' },
+  ad_hoc:   { label: '수시', bg: 'bg-amber-50',   text: 'text-amber-700' },
+  regular:  { label: '정기', bg: 'bg-violet-50',  text: 'text-violet-700' },
+  one_time: { label: '일회성', bg: 'bg-violet-50', text: 'text-violet-700' },
+  project_task: { label: '프로젝트', bg: 'bg-sky-50', text: 'text-sky-700' },
+};
+
+function CalendarView({ me, todayStr }: { me: Me; todayStr: string }) {
   const supabase = createClient();
   const [base, setBase] = useState(() => {
     const d = new Date(todayStr + 'T00:00:00');
@@ -803,6 +811,7 @@ function CalendarView({ meId, todayStr }: { meId: string; todayStr: string }) {
   });
   const [instances, setInstances] = useState<Instance[]>([]);
   const [projTasks, setProjTasks] = useState<ProjectTask[]>([]);
+  const [empMap, setEmpMap] = useState<Record<string, string>>({ [me.id]: me.name });
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
@@ -817,16 +826,20 @@ function CalendarView({ meId, todayStr }: { meId: string; todayStr: string }) {
       supabase
         .from('task_instances')
         .select('*')
-        .eq('assignee_id', meId)
+        .eq('assignee_id', me.id)
         .gte('due_date', fromStr)
         .lte('due_date', toStr),
       supabase
         .from('project_tasks')
         .select('*, projects(id, title, deadline)')
-        .contains('assignee_ids', [meId]),
-    ]).then(([inst, pt]) => {
+        .contains('assignee_ids', [me.id]),
+      supabase.from('employees').select('id, name'),
+    ]).then(([inst, pt, emps]) => {
       setInstances((inst.data ?? []) as any);
       setProjTasks((pt.data ?? []) as any);
+      const m: Record<string, string> = {};
+      (emps.data ?? []).forEach((e: any) => { m[e.id] = e.name; });
+      setEmpMap(m);
       setLoading(false);
     });
   }, [base.year, base.month]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -937,37 +950,64 @@ function CalendarView({ meId, todayStr }: { meId: string; todayStr: string }) {
             {detail.inst.length === 0 && detail.pt.length === 0 && (
               <p className="text-sm text-slate-500">업무 없음</p>
             )}
-            {detail.inst.map((i) => (
-              <div key={i.id} className="border border-slate-100 rounded p-2 text-sm">
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className={i.status === 'done' ? 'line-through text-slate-400' : 'font-medium'}>
-                    {i.title}
-                  </span>
-                  {i.kind && (
-                    <span className="text-xs px-1.5 py-0.5 bg-slate-100 rounded">
-                      {KIND_LABEL[i.kind as Kind] ?? i.kind}
+            {detail.inst.map((i) => {
+              const ks = KIND_STYLE[i.kind ?? 'ad_hoc'] ?? KIND_STYLE.ad_hoc;
+              const borderColor =
+                i.kind === 'standing' ? 'border-l-emerald-500'
+                : i.kind === 'regular' || i.kind === 'one_time' ? 'border-l-violet-500'
+                : 'border-l-amber-500';
+              return (
+                <div key={i.id} className={`border border-slate-200 border-l-4 ${borderColor} rounded p-2.5 text-sm space-y-1`}>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className={i.status === 'done' ? 'line-through text-slate-400 font-medium' : 'font-medium'}>
+                      {i.title}
                     </span>
-                  )}
-                  {i.department && (
-                    <span className="text-xs px-1.5 py-0.5 bg-blue-50 text-blue-700 rounded">{i.department}</span>
-                  )}
+                    <span className={`text-xs px-1.5 py-0.5 rounded ${ks.bg} ${ks.text} font-medium`}>
+                      {ks.label}
+                    </span>
+                    {i.department && (
+                      <span className="text-xs px-1.5 py-0.5 bg-blue-50 text-blue-700 rounded">{i.department}</span>
+                    )}
+                  </div>
+                  <div className="text-xs text-slate-600 space-y-0.5">
+                    <div>담당: {empMap[i.assignee_id] ?? me.name}</div>
+                    {i.linked_dept && <div>연계부서: {i.linked_dept}</div>}
+                  </div>
+                  {i.memo && <p className="text-xs text-slate-500 whitespace-pre-wrap">{i.memo}</p>}
                 </div>
-                {i.memo && <p className="text-xs text-slate-500 mt-1">{i.memo}</p>}
-              </div>
-            ))}
-            {detail.pt.map((t) => (
-              <div key={t.id} className="border border-sky-100 rounded p-2 text-sm">
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className={t.status === 'done' ? 'line-through text-slate-400' : 'font-medium'}>
-                    {t.title}
-                  </span>
-                  <span className="text-xs px-1.5 py-0.5 bg-sky-50 text-sky-700 rounded">
-                    프로젝트: {t.projects?.title}
-                  </span>
+              );
+            })}
+            {detail.pt.map((t) => {
+              const ks = KIND_STYLE.project_task;
+              const assignees = (t.assignee_ids ?? []).map((id) => empMap[id] ?? '?').join(', ') || me.name;
+              return (
+                <div key={t.id} className="border border-slate-200 border-l-4 border-l-sky-500 rounded p-2.5 text-sm space-y-1">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className={t.status === 'done' ? 'line-through text-slate-400 font-medium' : 'font-medium'}>
+                      {t.title}
+                    </span>
+                    <span className={`text-xs px-1.5 py-0.5 rounded ${ks.bg} ${ks.text} font-medium`}>
+                      {ks.label}
+                    </span>
+                    {t.projects?.title && (
+                      <span className="text-xs px-1.5 py-0.5 bg-slate-100 text-slate-700 rounded">
+                        {t.projects.title}
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-xs text-slate-600 space-y-0.5">
+                    <div>담당: {assignees}</div>
+                    {t.linked_dept && (
+                      <div>
+                        연계부서: {t.linked_dept}
+                        {t.linked_dept_contact ? ` (${t.linked_dept_contact})` : ''}
+                      </div>
+                    )}
+                  </div>
+                  {t.memo && <p className="text-xs text-slate-500 whitespace-pre-wrap">{t.memo}</p>}
                 </div>
-                {t.memo && <p className="text-xs text-slate-500 mt-1">{t.memo}</p>}
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
