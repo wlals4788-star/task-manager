@@ -160,6 +160,7 @@ export default function MyTasksClient({
           onRemove={remove}
           todayStr={todayStr}
           color="emerald"
+          hideCheckbox
         />
         <Column
           title="수시업무"
@@ -321,6 +322,7 @@ function Column({
   addButton,
   todayStr,
   color,
+  hideCheckbox,
 }: {
   title: string;
   items: Instance[];
@@ -330,6 +332,7 @@ function Column({
   addButton?: React.ReactNode;
   todayStr: string;
   color: 'emerald' | 'amber' | 'violet';
+  hideCheckbox?: boolean;
 }) {
   const c = COLOR_MAP[color];
   const done = items.filter((i) => i.status === 'done').length;
@@ -338,9 +341,14 @@ function Column({
       <div className={`px-3 py-2 flex items-center justify-between border-b ${c.border} ${c.bg}`}>
         <div className="flex items-center gap-2">
           <span className={`text-sm font-semibold ${c.text}`}>{title}</span>
-          <span className="text-xs text-slate-500">
-            {done}/{items.length}
-          </span>
+          {!hideCheckbox && (
+            <span className="text-xs text-slate-500">
+              {done}/{items.length}
+            </span>
+          )}
+          {hideCheckbox && (
+            <span className="text-xs text-slate-500">{items.length}건</span>
+          )}
         </div>
         {addButton}
       </div>
@@ -358,13 +366,15 @@ function Column({
             onClick={() => onItemClick(inst)}
             className="p-3 flex items-start gap-2 cursor-pointer hover:bg-slate-50"
           >
-            <input
-              type="checkbox"
-              checked={inst.status === 'done'}
-              onChange={() => onToggle(inst)}
-              onClick={(e) => e.stopPropagation()}
-              className="mt-1 h-4 w-4 shrink-0"
-            />
+            {!hideCheckbox && (
+              <input
+                type="checkbox"
+                checked={inst.status === 'done'}
+                onChange={() => onToggle(inst)}
+                onClick={(e) => e.stopPropagation()}
+                className="mt-1 h-4 w-4 shrink-0"
+              />
+            )}
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1.5 flex-wrap">
                 <span
@@ -493,12 +503,16 @@ function DetailDialog({
         </div>
 
         <div className="flex justify-between items-center pt-2">
-          <button
-            onClick={onToggleStatus}
-            className="text-xs px-2.5 py-1.5 border border-slate-300 rounded-md hover:bg-slate-50"
-          >
-            {inst.status === 'done' ? '완료 취소' : '완료 처리'}
-          </button>
+          {inst.kind === 'standing' ? (
+            <span className="text-xs text-slate-400">상시업무 (완료 처리 없음)</span>
+          ) : (
+            <button
+              onClick={onToggleStatus}
+              className="text-xs px-2.5 py-1.5 border border-slate-300 rounded-md hover:bg-slate-50"
+            >
+              {inst.status === 'done' ? '완료 취소' : '완료 처리'}
+            </button>
+          )}
           <div className="flex gap-2">
             <button onClick={onClose} className="px-3 py-1.5 text-sm text-slate-600">
               취소
