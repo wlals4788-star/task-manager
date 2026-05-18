@@ -71,14 +71,34 @@ export default function TemplatesClient({
   const [department, setDepartment] = useState<string>(DEPARTMENTS[0]);
   const [employeeId, setEmployeeId] = useState<string>(employees[0]?.id ?? '');
   const [kindFilter, setKindFilter] = useState<Kind | 'all'>('all');
+  const [search, setSearch] = useState('');
   const [editing, setEditing] = useState<Template | 'new' | null>(null);
   const supabase = createClient();
 
+  const empById2 = Object.fromEntries(employees.map((e) => [e.id, e.name]));
+  const q = search.trim().toLowerCase();
+
   const filtered = initial.filter((t) => {
     if (kindFilter !== 'all' && t.kind !== kindFilter) return false;
-    if (view === 'department') return t.department === department;
-    if (view === 'employee') return (t.assignee_ids ?? []).includes(employeeId);
-    return false;
+    if (view === 'department' && t.department !== department) return false;
+    if (view === 'employee' && !(t.assignee_ids ?? []).includes(employeeId)) return false;
+    if (view === 'project') return false;
+    if (q) {
+      const assigneeNames = (t.assignee_ids ?? [])
+        .map((id) => empById2[id] ?? '')
+        .join(' ');
+      const haystack = [
+        t.title,
+        t.department,
+        t.linked_dept ?? '',
+        t.memo ?? '',
+        assigneeNames,
+      ]
+        .join(' ')
+        .toLowerCase();
+      if (!haystack.includes(q)) return false;
+    }
+    return true;
   });
 
   async function toggleActive(t: Template) {
@@ -162,7 +182,7 @@ export default function TemplatesClient({
         />
       ) : (
         <section className="space-y-3">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
             <div className="flex gap-1 bg-white border border-slate-200 rounded-md p-1">
               {(['all', 'regular', 'ad_hoc', 'standing', 'one_time'] as const).map((k) => (
                 <button
@@ -175,6 +195,38 @@ export default function TemplatesClient({
                   {k === 'all' ? '전체' : KIND_LABEL[k]}
                 </button>
               ))}
+            </div>
+            <div className="relative flex-1 min-w-[200px] max-w-md">
+              <input
+                type="search"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="업무명 · 담당자 · 연계부서 검색"
+                className="w-full pl-8 pr-3 py-1.5 border border-slate-300 rounded-md text-sm bg-white focus:outline-none focus:ring-2 focus:ring-slate-400"
+              />
+              <svg
+                className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16z"
+                />
+              </svg>
+              {search && (
+                <button
+                  onClick={() => setSearch('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 text-sm"
+                  type="button"
+                  aria-label="검색어 지우기"
+                >
+                  ✕
+                </button>
+              )}
             </div>
             <button
               onClick={() => setEditing('new')}
