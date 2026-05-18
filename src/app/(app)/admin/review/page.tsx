@@ -15,12 +15,9 @@ function ymd(d: Date) {
 
 function rangeFor(period: Period, anchor: string): { from: string; to: string } {
   const a = new Date(anchor + 'T00:00:00');
-  if (period === 'day') {
-    return { from: anchor, to: anchor };
-  }
+  if (period === 'day') return { from: anchor, to: anchor };
   if (period === 'week') {
-    // 월요일~일요일
-    const dow = a.getDay(); // 0=일
+    const dow = a.getDay();
     const diffToMon = dow === 0 ? -6 : 1 - dow;
     const mon = new Date(a);
     mon.setDate(a.getDate() + diffToMon);
@@ -28,7 +25,6 @@ function rangeFor(period: Period, anchor: string): { from: string; to: string } 
     sun.setDate(mon.getDate() + 6);
     return { from: ymd(mon), to: ymd(sun) };
   }
-  // month
   const first = new Date(a.getFullYear(), a.getMonth(), 1);
   const last = new Date(a.getFullYear(), a.getMonth() + 1, 0);
   return { from: ymd(first), to: ymd(last) };
@@ -56,17 +52,30 @@ export default async function ReviewPage({
   const { from, to } = rangeFor(period, date);
 
   let instances: any[] = [];
+  let standingTemplates: any[] = [];
   if (empId) {
-    const { data } = await supabase
-      .from('task_instances')
-      .select('*')
-      .eq('assignee_id', empId)
-      .neq('kind', 'standing') // 상시업무 제외
-      .gte('due_date', from)
-      .lte('due_date', to)
-      .order('due_date', { ascending: false })
-      .order('kind');
-    instances = data ?? [];
+    const [{ data: ins }, { data: st }] = await Promise.all([
+      supabase
+        .from('task_instances')
+        .select('*')
+        .eq('assignee_id', empId)
+        .neq('kind', 'standing')
+        .gte('due_date', from)
+        .lte('due_date', to)
+        .order('due_date', { ascending: false })
+        .order('department')
+        .order('kind'),
+      supabase
+        .from('task_templates')
+        .select('*')
+        .eq('kind', 'standing')
+        .eq('active', true)
+        .contains('assignee_ids', [empId])
+        .order('department')
+        .order('created_at'),
+    ]);
+    instances = ins ?? [];
+    standingTemplates = st ?? [];
   }
 
   return (
@@ -78,6 +87,7 @@ export default async function ReviewPage({
       from={from}
       to={to}
       instances={instances}
+      standingTemplates={standingTemplates}
     />
   );
 }
