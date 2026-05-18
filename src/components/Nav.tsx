@@ -16,12 +16,14 @@ export default function Nav({
   const pathname = usePathname();
   const router = useRouter();
 
-  const items: { href: string; label: string; admin?: boolean }[] = [
-    { href: '/my-tasks', label: '내 업무' },
-    { href: '/admin/staff-tasks', label: '담당자별 업무', admin: true },
-    { href: '/admin/templates', label: '업무 마스터', admin: true },
-    { href: '/admin/employees', label: '직원 관리', admin: true },
-    { href: '/admin/review', label: '검토', admin: true },
+  const canEdu = role === 'admin' || department.includes('교육');
+  const items: { href: string; label: string; show: boolean }[] = [
+    { href: '/my-tasks', label: '내 업무', show: true },
+    { href: '/education/recruits', label: '교육관리', show: canEdu },
+    { href: '/admin/staff-tasks', label: '담당자별 업무', show: role === 'admin' },
+    { href: '/admin/templates', label: '업무 마스터', show: role === 'admin' },
+    { href: '/admin/employees', label: '직원 관리', show: role === 'admin' },
+    { href: '/admin/review', label: '검토', show: role === 'admin' },
   ];
 
   async function logout() {
@@ -39,7 +41,7 @@ export default function Nav({
             경영지원
           </Link>
           {items
-            .filter((it) => !it.admin || role === 'admin')
+            .filter((it) => it.show)
             .map((it) => {
               const active = pathname.startsWith(it.href);
               return (
