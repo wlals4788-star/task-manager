@@ -106,8 +106,14 @@ export default function TemplatesClient({
     router.refresh();
   }
   async function remove(t: Template) {
-    if (!confirm('삭제하시겠습니까? (해당 템플릿으로 이미 생성된 업무 인스턴스는 유지됩니다)'))
-      return;
+    const cascade = t.kind === 'ad_hoc' || t.kind === 'one_time';
+    const msg = cascade
+      ? '삭제하시겠습니까? (담당자 업무에서도 함께 제거됩니다)'
+      : '삭제하시겠습니까? (해당 템플릿으로 이미 생성된 업무 인스턴스는 유지됩니다)';
+    if (!confirm(msg)) return;
+    if (cascade) {
+      await supabase.from('task_instances').delete().eq('template_id', t.id);
+    }
     await supabase.from('task_templates').delete().eq('id', t.id);
     router.refresh();
   }
