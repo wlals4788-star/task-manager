@@ -43,6 +43,11 @@ export default function StudentsClient({ initial }: { initial: Student[] }) {
   const [items, setItems] = useState<Student[]>(initial);
   const [editing, setEditing] = useState<EditForm | null>(null);
   const [busy, setBusy] = useState(false);
+  const [filterMonth, setFilterMonth] = useState('');
+
+  const filtered = filterMonth
+    ? items.filter((s) => s.created_at.slice(0, 7) === filterMonth)
+    : items;
 
   async function toggleBool(s: Student, field: BoolField) {
     const next = !s[field];
@@ -113,12 +118,28 @@ export default function StudentsClient({ initial }: { initial: Student[] }) {
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <h1 className="text-lg font-semibold">교육생 관리</h1>
-        <button
-          onClick={() => setEditing({ id: 'new', name: '', phone: '' })}
-          className="px-3 py-1.5 bg-slate-900 text-white rounded-md text-sm"
-        >
-          + 교육생 추가
-        </button>
+        <div className="flex items-center gap-2">
+          <input
+            type="month"
+            className="input text-sm"
+            value={filterMonth}
+            onChange={(e) => setFilterMonth(e.target.value)}
+          />
+          {filterMonth && (
+            <button
+              onClick={() => setFilterMonth('')}
+              className="text-xs text-slate-500 hover:text-slate-800"
+            >
+              전체
+            </button>
+          )}
+          <button
+            onClick={() => setEditing({ id: 'new', name: '', phone: '' })}
+            className="px-3 py-1.5 bg-slate-900 text-white rounded-md text-sm"
+          >
+            + 교육생 추가
+          </button>
+        </div>
       </div>
 
       <div className="bg-white border border-slate-200 rounded-lg overflow-x-auto">
@@ -136,7 +157,7 @@ export default function StudentsClient({ initial }: { initial: Student[] }) {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {items.map((s) => (
+            {filtered.map((s) => (
               <tr key={s.id} className="hover:bg-slate-50/50">
                 <td className="px-3 py-2 font-medium">{s.name}</td>
                 <td className="px-3 py-2 text-slate-600">{s.phone ?? '-'}</td>
@@ -175,10 +196,12 @@ export default function StudentsClient({ initial }: { initial: Student[] }) {
                 </td>
               </tr>
             ))}
-            {items.length === 0 && (
+            {filtered.length === 0 && (
               <tr>
                 <td colSpan={BOOL_COLS.length + 3} className="px-3 py-8 text-center text-slate-500">
-                  등록된 교육생이 없습니다.
+                  {filterMonth
+                    ? `${formatMonth(filterMonth)}에 해당하는 교육생이 없습니다.`
+                    : '등록된 교육생이 없습니다.'}
                 </td>
               </tr>
             )}
@@ -241,4 +264,10 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       {children}
     </label>
   );
+}
+
+function formatMonth(ym: string) {
+  const [y, m] = ym.split('-');
+  if (!y || !m) return ym;
+  return `${y}년 ${parseInt(m, 10)}월`;
 }

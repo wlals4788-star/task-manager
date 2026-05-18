@@ -45,6 +45,11 @@ export default function RecruitsClient({
   const supabase = createClient();
   const [editing, setEditing] = useState<Editable | null>(null);
   const [busy, setBusy] = useState(false);
+  const [filterMonth, setFilterMonth] = useState('');
+
+  const filtered = filterMonth
+    ? initial.filter((r) => r.education_month === filterMonth)
+    : initial;
 
   function startNew() {
     setEditing({ ...EMPTY });
@@ -191,12 +196,28 @@ export default function RecruitsClient({
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <h1 className="text-lg font-semibold">입사 예정자 관리</h1>
-        <button
-          onClick={startNew}
-          className="px-3 py-1.5 bg-slate-900 text-white rounded-md text-sm"
-        >
-          + 예정자 추가
-        </button>
+        <div className="flex items-center gap-2">
+          <input
+            type="month"
+            className="input text-sm"
+            value={filterMonth}
+            onChange={(e) => setFilterMonth(e.target.value)}
+          />
+          {filterMonth && (
+            <button
+              onClick={() => setFilterMonth('')}
+              className="text-xs text-slate-500 hover:text-slate-800"
+            >
+              전체
+            </button>
+          )}
+          <button
+            onClick={startNew}
+            className="px-3 py-1.5 bg-slate-900 text-white rounded-md text-sm"
+          >
+            + 예정자 추가
+          </button>
+        </div>
       </div>
 
       <div className="bg-white border border-slate-200 rounded-lg overflow-x-auto">
@@ -215,7 +236,7 @@ export default function RecruitsClient({
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {initial.map((r) => (
+            {filtered.map((r) => (
               <tr key={r.id} className="hover:bg-slate-50">
                 <td className="px-3 py-2">{r.introducer ?? '-'}</td>
                 <td className="px-3 py-2 font-medium">{r.name}</td>
@@ -254,10 +275,12 @@ export default function RecruitsClient({
                 </td>
               </tr>
             ))}
-            {initial.length === 0 && (
+            {filtered.length === 0 && (
               <tr>
                 <td colSpan={9} className="px-3 py-8 text-center text-slate-500">
-                  등록된 예정자가 없습니다.
+                  {filterMonth
+                    ? `${formatMonth(filterMonth)}에 해당하는 예정자가 없습니다.`
+                    : '등록된 예정자가 없습니다.'}
                 </td>
               </tr>
             )}
