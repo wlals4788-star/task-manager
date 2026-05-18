@@ -38,10 +38,17 @@ export default function StudentsClient({ initial }: { initial: Student[] }) {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
   });
+  const [search, setSearch] = useState('');
 
-  const filtered = filterMonth
-    ? items.filter((s) => s.education_month === filterMonth)
-    : items;
+  const q = search.trim().toLowerCase();
+  const filtered = items.filter((s) => {
+    if (filterMonth && s.education_month !== filterMonth) return false;
+    if (q) {
+      const hay = `${s.name} ${s.phone ?? ''}`.toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
 
   async function toggleBool(s: Student, field: BoolField) {
     const next = !s[field];
@@ -61,6 +68,13 @@ export default function StudentsClient({ initial }: { initial: Student[] }) {
       <div className="flex items-center justify-between">
         <h1 className="text-lg font-semibold">교육생 관리</h1>
         <div className="flex items-center gap-2">
+          <input
+            type="text"
+            placeholder="이름·연락처 검색"
+            className="input text-sm w-48"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
           <input
             type="month"
             className="input text-sm"

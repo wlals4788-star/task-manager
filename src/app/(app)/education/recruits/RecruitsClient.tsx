@@ -46,10 +46,17 @@ export default function RecruitsClient({
   const [editing, setEditing] = useState<Editable | null>(null);
   const [busy, setBusy] = useState(false);
   const [filterMonth, setFilterMonth] = useState('');
+  const [search, setSearch] = useState('');
 
-  const filtered = filterMonth
-    ? initial.filter((r) => r.education_month === filterMonth)
-    : initial;
+  const q = search.trim().toLowerCase();
+  const filtered = initial.filter((r) => {
+    if (filterMonth && r.education_month !== filterMonth) return false;
+    if (q) {
+      const hay = `${r.name} ${r.phone ?? ''} ${r.introducer ?? ''}`.toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
 
   function startNew() {
     setEditing({ ...EMPTY });
@@ -197,6 +204,13 @@ export default function RecruitsClient({
       <div className="flex items-center justify-between">
         <h1 className="text-lg font-semibold">입사 예정자 관리</h1>
         <div className="flex items-center gap-2">
+          <input
+            type="text"
+            placeholder="이름·연락처·소개인 검색"
+            className="input text-sm w-48"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
           <input
             type="month"
             className="input text-sm"
