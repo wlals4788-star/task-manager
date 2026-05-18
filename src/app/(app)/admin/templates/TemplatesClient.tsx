@@ -209,8 +209,12 @@ export default function TemplatesClient({
                     <td className="px-3 py-2 text-xs text-slate-600">
                       {t.kind === 'regular' && t.frequency
                         ? `${FREQUENCY_LABEL[t.frequency]}${describeDetail(t.frequency, t.frequency_detail)}`
-                        : t.kind === 'one_time' && t.frequency_detail?.due_date
-                          ? `(${t.frequency_detail.due_date})`
+                        : t.kind === 'one_time'
+                          ? t.frequency_detail?.mode === 'range' && t.frequency_detail?.start_date
+                            ? `(${t.frequency_detail.start_date} ~ ${t.frequency_detail.end_date})`
+                            : t.frequency_detail?.due_date
+                              ? `(${t.frequency_detail.due_date})`
+                              : '-'
                           : '-'}
                     </td>
                     <td className="px-3 py-2">{renderAssignees(t.assignee_ids ?? [])}</td>
@@ -332,13 +336,20 @@ function EditDialog({
       await supabase.from('linked_departments').insert({ name: linkedDept.trim() });
     }
 
+    const oneTimeDetail =
+      kind === 'one_time'
+        ? detail.mode === 'range'
+          ? { mode: 'range', start_date: detail.start_date, end_date: detail.end_date }
+          : { mode: 'single', due_date: detail.due_date }
+        : {};
+
     const payload: any = {
       title: title.trim(),
       department,
       kind,
       frequency: kind === 'regular' ? frequency : null,
       frequency_detail:
-        kind === 'regular' ? detail : kind === 'one_time' ? { due_date: detail.due_date } : {},
+        kind === 'regular' ? detail : kind === 'one_time' ? oneTimeDetail : {},
       assignee_ids: assigneeIds,
       linked_dept: linkedDept.trim() || null,
       memo: memo || null,
@@ -362,34 +373,42 @@ function EditDialog({
       templateId = (initial as Template).id;
     }
 
-    if (!error && kind === 'one_time' && detail.due_date && templateId) {
-      // 일회성: 인스턴스를 즉시 생성
-      const insts = assigneeIds.length
-        ? assigneeIds.map((aid) => ({
-            template_id: templateId,
-            assignee_id: aid,
-            title: title.trim(),
-            department,
-            kind: 'one_time',
-            due_date: detail.due_date,
-            source: 'template',
-            linked_dept: linkedDept.trim() || null,
-            memo: memo || null,
-          }))
-        : [
-            {
+    if (!error && kind === 'one_time' && templateId) {
+      // 인스턴스 생성할 날짜 목록 계산
+      const dates: string[] = [];
+      if (oneTimeDetail.mode === 'range' && oneTimeDetail.start_date && oneTimeDetail.end_date) {
+        const start = new Date(oneTimeDetail.start_date + 'T00:00:00');
+        const end = new Date(oneTimeDetail.end_date + 'T00:00:00');
+        for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+          const y = d.getFullYear();
+          const m = String(d.getMonth() + 1).padStart(2, '0');
+          const dd = String(d.getDate()).padStart(2, '0');
+          dates.push(`${y}-${m}-${dd}`);
+        }
+      } else if (oneTimeDetail.mode === 'single' && oneTimeDetail.due_date) {
+        dates.push(oneTimeDetail.due_date);
+      }
+
+      if (dates.length > 0) {
+        const assignees = assigneeIds.length ? assigneeIds : [null];
+        const insts: any[] = [];
+        for (const due of dates) {
+          for (const aid of assignees) {
+            insts.push({
               template_id: templateId,
-              assignee_id: null,
+              assignee_id: aid,
               title: title.trim(),
               department,
               kind: 'one_time',
-              due_date: detail.due_date,
+              due_date: due,
               source: 'template',
               linked_dept: linkedDept.trim() || null,
               memo: memo || null,
-            },
-          ];
-      await supabase.from('task_instances').insert(insts as any);
+            });
+          }
+        }
+        await supabase.from('task_instances').insert(insts);
+      }
     }
 
     setBusy(false);
@@ -465,14 +484,67 @@ function EditDialog({
         )}
 
         {kind === 'one_time' && (
-          <Field label="실행일">
-            <input
-              type="date"
-              className="input"
-              value={detail.due_date ?? ''}
-              onChange={(e) => setDetail({ due_date: e.target.value })}
-            />
-          </Field>
+          <>
+            <Field label="일정 형식">
+              <div className="flex gap-2">
+                {(['single', 'range'] as const).map((m) => {
+                  const active = (detail.mode ?? 'single') === m;
+                  return (
+                    <button
+                      key={m}
+                      type="button"
+                      onClick={() => setDetail({ ...detail, mode: m })}
+                      className={`px-3 py-1.5 text-sm rounded-md border ${
+                        active
+                          ? 'bg-slate-900 text-white border-slate-900'
+                          : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
+                      }`}
+                    >
+                      {m === 'single' ? '일자 지정' : '기간 지정'}
+                    </button>
+                  );
+                })}
+              </div>
+            </Field>
+            {(detail.mode ?? 'single') === 'single' ? (
+              <Field label="실행일">
+                <input
+                  type="date"
+                  className="input"
+                  value={detail.due_date ?? ''}
+                  onChange={(e) => setDetail({ ...detail, mode: 'single', due_date: e.target.value })}
+                />
+              </Field>
+            ) : (
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="시작일">
+                  <input
+                    type="date"
+                    className="input"
+                    value={detail.start_date ?? ''}
+                    onChange={(e) =>
+                      setDetail({ ...detail, mode: 'range', start_date: e.target.value })
+                    }
+                  />
+                </Field>
+                <Field label="종료일">
+                  <input
+                    type="date"
+                    className="input"
+                    value={detail.end_date ?? ''}
+                    onChange={(e) =>
+                      setDetail({ ...detail, mode: 'range', end_date: e.target.value })
+                    }
+                  />
+                </Field>
+              </div>
+            )}
+            {(detail.mode ?? 'single') === 'range' && (
+              <p className="text-xs text-slate-500">
+                기간 내 매일 1개의 인스턴스가 자동 생성됩니다 (담당자별).
+              </p>
+            )}
+          </>
         )}
 
         <Field label="담당자 (복수 선택)">
