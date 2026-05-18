@@ -13,6 +13,7 @@ type Recruit = {
   address: string | null;
   position: string | null;
   interview_at: string | null;
+  education_month: string | null;
   interview_template_id: string | null;
   created_at: string;
 };
@@ -30,6 +31,7 @@ const EMPTY: Editable = {
   address: '',
   position: '',
   interview_at: '',
+  education_month: '',
 };
 
 export default function RecruitsClient({
@@ -57,6 +59,7 @@ export default function RecruitsClient({
       address: r.address ?? '',
       position: r.position ?? '',
       interview_at: r.interview_at ? toLocalInput(r.interview_at) : '',
+      education_month: r.education_month ?? '',
     });
   }
 
@@ -89,6 +92,7 @@ export default function RecruitsClient({
       address: editing.address || null,
       position: editing.position || null,
       interview_at: interviewAt,
+      education_month: editing.education_month || null,
       updated_at: new Date().toISOString(),
     };
 
@@ -206,6 +210,7 @@ export default function RecruitsClient({
               <th className="text-left px-3 py-2">주소</th>
               <th className="text-left px-3 py-2">기본식책</th>
               <th className="text-left px-3 py-2">면접일정</th>
+              <th className="text-left px-3 py-2">교육월</th>
               <th className="px-3 py-2 w-24"></th>
             </tr>
           </thead>
@@ -230,6 +235,9 @@ export default function RecruitsClient({
                     '-'
                   )}
                 </td>
+                <td className="px-3 py-2 text-slate-600">
+                  {r.education_month ? formatMonth(r.education_month) : '-'}
+                </td>
                 <td className="px-3 py-2 text-right space-x-2">
                   <button
                     onClick={() => startEdit(r)}
@@ -248,7 +256,7 @@ export default function RecruitsClient({
             ))}
             {initial.length === 0 && (
               <tr>
-                <td colSpan={8} className="px-3 py-8 text-center text-slate-500">
+                <td colSpan={9} className="px-3 py-8 text-center text-slate-500">
                   등록된 예정자가 없습니다.
                 </td>
               </tr>
@@ -324,6 +332,14 @@ export default function RecruitsClient({
                 일정 입력 시 교육 분야 직원에게 "{editing.name || '예정자'} 면접" 일회성 업무가 자동 생성됩니다.
               </p>
             </Field>
+            <Field label="교육월 (년·월)">
+              <input
+                type="month"
+                className="input"
+                value={editing.education_month ?? ''}
+                onChange={(e) => setEditing({ ...editing, education_month: e.target.value })}
+              />
+            </Field>
 
             <div className="flex justify-end gap-2 pt-2">
               <button
@@ -367,4 +383,11 @@ function formatKST(iso: string) {
   const d = new Date(iso);
   const pad = (n: number) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function formatMonth(ym: string) {
+  // 'YYYY-MM' → 'YYYY년 M월'
+  const [y, m] = ym.split('-');
+  if (!y || !m) return ym;
+  return `${y}년 ${parseInt(m, 10)}월`;
 }
