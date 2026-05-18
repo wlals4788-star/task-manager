@@ -1,7 +1,9 @@
 'use client';
 
+import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { DEPARTMENTS } from '@/lib/constants';
+import AssignTaskDialog from '@/components/AssignTaskDialog';
 
 type Period = 'day' | 'week' | 'month';
 type Employee = { id: string; name: string; department: string[] };
@@ -38,6 +40,8 @@ const DEPT_DOT_COLOR: Record<string, string> = {
   '교육': 'bg-purple-500',
 };
 
+type ProjectRef = { id: string; title: string };
+
 export default function ReviewClient({
   employees,
   selectedEmp,
@@ -47,6 +51,8 @@ export default function ReviewClient({
   to,
   instances,
   standingTemplates,
+  projects,
+  linkedDepts,
 }: {
   employees: Employee[];
   selectedEmp: string | null;
@@ -56,9 +62,12 @@ export default function ReviewClient({
   to: string;
   instances: Instance[];
   standingTemplates: StandingTemplate[];
+  projects: ProjectRef[];
+  linkedDepts: string[];
 }) {
   const router = useRouter();
   const sp = useSearchParams();
+  const [showAdd, setShowAdd] = useState(false);
 
   function update(params: Record<string, string>) {
     const next = new URLSearchParams(sp);
@@ -76,6 +85,7 @@ export default function ReviewClient({
 
   const totalInRange = instances.length;
   const doneInRange = instances.filter((i) => i.status === 'done').length;
+  const selectedEmployee = employees.find((e) => e.id === selectedEmp) ?? null;
 
   // 상시 분야별
   const standingByDept: Record<string, StandingTemplate[]> = {};
@@ -133,17 +143,27 @@ export default function ReviewClient({
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-slate-500">기준일자</span>
-            <input
-              type="date"
-              value={date}
-              onChange={(e) => update({ date: e.target.value })}
-              className="text-sm border border-slate-200 rounded px-2 py-1"
-            />
-            <span className="text-xs text-slate-500">
-              ({from === to ? from : `${from} ~ ${to}`})
-            </span>
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-slate-500">기준일자</span>
+              <input
+                type="date"
+                value={date}
+                onChange={(e) => update({ date: e.target.value })}
+                className="text-sm border border-slate-200 rounded px-2 py-1"
+              />
+              <span className="text-xs text-slate-500">
+                ({from === to ? from : `${from} ~ ${to}`})
+              </span>
+            </div>
+            {selectedEmployee && (
+              <button
+                onClick={() => setShowAdd(true)}
+                className="px-3 py-1.5 bg-slate-900 text-white rounded-md text-sm"
+              >
+                + {selectedEmployee.name}에게 업무 부여
+              </button>
+            )}
           </div>
         </div>
 
@@ -247,6 +267,20 @@ export default function ReviewClient({
           </>
         )}
       </section>
+
+      {showAdd && selectedEmployee && (
+        <AssignTaskDialog
+          assignee={selectedEmployee}
+          defaultDate={date}
+          projects={projects}
+          linkedDepts={linkedDepts}
+          onClose={() => setShowAdd(false)}
+          onDone={() => {
+            setShowAdd(false);
+            router.refresh();
+          }}
+        />
+      )}
     </div>
   );
 }

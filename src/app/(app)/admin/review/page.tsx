@@ -51,6 +51,11 @@ export default async function ReviewPage({
 
   const { from, to } = rangeFor(period, date);
 
+  const [{ data: projects }, { data: linkedDepts }] = await Promise.all([
+    supabase.from('projects').select('id, title').order('created_at', { ascending: false }),
+    supabase.from('linked_departments').select('name').order('name'),
+  ]);
+
   let instances: any[] = [];
   let standingTemplates: any[] = [];
   if (empId) {
@@ -88,6 +93,8 @@ export default async function ReviewPage({
       to={to}
       instances={instances}
       standingTemplates={standingTemplates}
+      projects={projects ?? []}
+      linkedDepts={(linkedDepts ?? []).map((d: any) => d.name)}
     />
   );
 }

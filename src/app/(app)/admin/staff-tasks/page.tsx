@@ -64,6 +64,11 @@ export default async function StaffTasksPage({
     projectTasks = pt ?? [];
   }
 
+  const [{ data: projects }, { data: linkedDepts }] = await Promise.all([
+    supabase.from('projects').select('id, title').order('created_at', { ascending: false }),
+    supabase.from('linked_departments').select('name').order('name'),
+  ]);
+
   return (
     <StaffTasksClient
       employees={employees ?? []}
@@ -72,6 +77,8 @@ export default async function StaffTasksPage({
       todayStr={todayStr}
       tomorrowStr={tomorrowStr}
       projectTasks={projectTasks}
+      projects={projects ?? []}
+      linkedDepts={(linkedDepts ?? []).map((d: any) => d.name)}
     />
   );
 }

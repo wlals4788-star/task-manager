@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { DEPARTMENTS, KIND_LABEL, type Kind } from '@/lib/constants';
+import AssignTaskDialog from '@/components/AssignTaskDialog';
 
 type Employee = { id: string; name: string; department: string[] };
 
@@ -35,6 +36,8 @@ type ProjectTask = {
   projects?: { id: string; title: string; deadline: string | null } | null;
 };
 
+type ProjectRef = { id: string; title: string };
+
 export default function StaffTasksClient({
   employees,
   selectedEmpId,
@@ -42,6 +45,8 @@ export default function StaffTasksClient({
   todayStr,
   tomorrowStr,
   projectTasks,
+  projects,
+  linkedDepts,
 }: {
   employees: Employee[];
   selectedEmpId: string | null;
@@ -49,6 +54,8 @@ export default function StaffTasksClient({
   todayStr: string;
   tomorrowStr: string;
   projectTasks: ProjectTask[];
+  projects: ProjectRef[];
+  linkedDepts: string[];
 }) {
   const router = useRouter();
   const sp = useSearchParams();
@@ -192,6 +199,14 @@ export default function StaffTasksClient({
           <span className="text-sm text-slate-500">
             완료 {doneCount}/{visible.length}
           </span>
+          {selectedEmp && (
+            <button
+              onClick={() => setShowAdd(true)}
+              className="px-3 py-1.5 bg-slate-900 text-white rounded-md text-sm"
+            >
+              + 업무 부여
+            </button>
+          )}
         </div>
       </div>
 
@@ -221,14 +236,6 @@ export default function StaffTasksClient({
             onRemove={remove}
             todayStr={todayStr}
             color="amber"
-            addButton={
-              <button
-                onClick={() => setShowAdd(true)}
-                className="px-2.5 py-1 bg-slate-900 text-white rounded-md text-xs"
-              >
-                + 부여
-              </button>
-            }
           />
           <Column
             title="정기업무"
@@ -244,12 +251,16 @@ export default function StaffTasksClient({
       )}
 
       {showAdd && selectedEmp && (
-        <AddDialog
+        <AssignTaskDialog
           assignee={selectedEmp}
-          defaultDept={selectedEmp.department[0] ?? '인사관리'}
           defaultDate={tab === 'today' ? todayStr : tomorrowStr}
+          projects={projects}
+          linkedDepts={linkedDepts}
           onClose={() => setShowAdd(false)}
-          onSubmit={addAdHoc}
+          onDone={() => {
+            setShowAdd(false);
+            router.refresh();
+          }}
         />
       )}
 
