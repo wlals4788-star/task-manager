@@ -67,15 +67,19 @@ export default function TemplatesClient({
   linkedDepts: string[];
 }) {
   const router = useRouter();
-  const [view, setView] = useState<'department' | 'project'>('department');
+  const [view, setView] = useState<'department' | 'employee' | 'project'>('department');
   const [department, setDepartment] = useState<string>(DEPARTMENTS[0]);
+  const [employeeId, setEmployeeId] = useState<string>(employees[0]?.id ?? '');
   const [kindFilter, setKindFilter] = useState<Kind | 'all'>('all');
   const [editing, setEditing] = useState<Template | 'new' | null>(null);
   const supabase = createClient();
 
-  const filtered = initial.filter(
-    (t) => t.department === department && (kindFilter === 'all' || t.kind === kindFilter)
-  );
+  const filtered = initial.filter((t) => {
+    if (kindFilter !== 'all' && t.kind !== kindFilter) return false;
+    if (view === 'department') return t.department === department;
+    if (view === 'employee') return (t.assignee_ids ?? []).includes(employeeId);
+    return false;
+  });
 
   async function toggleActive(t: Template) {
     await supabase.from('task_templates').update({ active: !t.active }).eq('id', t.id);
@@ -95,9 +99,9 @@ export default function TemplatesClient({
       : ids.map((id) => empById[id] ?? '(삭제됨)').join(', ');
 
   return (
-    <div className="grid grid-cols-[180px_1fr] gap-4">
-      <aside className="space-y-1">
-        <h2 className="text-xs text-slate-500 px-2 mb-1">분야</h2>
+    <div className="grid grid-cols-[200px_1fr] gap-4">
+      <aside className="space-y-1 max-h-[85vh] overflow-auto pr-1">
+        <h2 className="text-xs text-slate-500 px-2 mb-1">분야별</h2>
         {DEPARTMENTS.map((d) => (
           <button
             key={d}
@@ -114,6 +118,28 @@ export default function TemplatesClient({
             {d}
           </button>
         ))}
+
+        <h2 className="text-xs text-slate-500 px-2 mt-3 mb-1">담당자별</h2>
+        {employees.length === 0 && (
+          <p className="text-xs text-slate-400 px-2">직원 없음</p>
+        )}
+        {employees.map((e) => (
+          <button
+            key={e.id}
+            onClick={() => {
+              setView('employee');
+              setEmployeeId(e.id);
+            }}
+            className={`w-full text-left px-3 py-2 text-sm rounded-md ${
+              view === 'employee' && employeeId === e.id
+                ? 'bg-slate-900 text-white'
+                : 'hover:bg-slate-100'
+            }`}
+          >
+            {e.name}
+          </button>
+        ))}
+
         <div className="pt-2 mt-2 border-t border-slate-200">
           <button
             onClick={() => setView('project')}
@@ -163,6 +189,7 @@ export default function TemplatesClient({
               <thead className="bg-slate-50 text-slate-600 text-xs">
                 <tr>
                   <th className="text-left px-3 py-2">제목</th>
+                  {view === 'employee' && <th className="text-left px-3 py-2">분야</th>}
                   <th className="text-left px-3 py-2">구분</th>
                   <th className="text-left px-3 py-2">주기</th>
                   <th className="text-left px-3 py-2">담당자</th>
@@ -175,6 +202,9 @@ export default function TemplatesClient({
                 {filtered.map((t) => (
                   <tr key={t.id} className={t.active ? '' : 'opacity-50'}>
                     <td className="px-3 py-2 font-medium">{t.title}</td>
+                    {view === 'employee' && (
+                      <td className="px-3 py-2 text-xs">{t.department}</td>
+                    )}
                     <td className="px-3 py-2">{KIND_LABEL[t.kind]}</td>
                     <td className="px-3 py-2 text-xs text-slate-600">
                       {t.kind === 'regular' && t.frequency
@@ -215,7 +245,7 @@ export default function TemplatesClient({
                 ))}
                 {filtered.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="px-3 py-8 text-center text-slate-500">
+                    <td colSpan={view === 'employee' ? 8 : 7} className="px-3 py-8 text-center text-slate-500">
                       등록된 업무가 없습니다.
                     </td>
                   </tr>
@@ -228,7 +258,14 @@ export default function TemplatesClient({
 
       {editing && (
         <EditDialog
-          initial={editing === 'new' ? { department } : editing}
+          initial={
+            editing === 'new'
+              ? {
+                  department,
+                  assignee_ids: view === 'employee' && employeeId ? [employeeId] : [],
+                }
+              : editing
+          }
           employees={employees}
           linkedDepts={linkedDepts}
           onClose={() => setEditing(null)}
