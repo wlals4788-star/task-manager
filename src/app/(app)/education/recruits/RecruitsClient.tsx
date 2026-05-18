@@ -224,6 +224,7 @@ export default function RecruitsClient({
         <table className="w-full text-sm min-w-[1000px]">
           <thead className="bg-slate-50 text-slate-600 text-xs">
             <tr>
+              <th className="text-left px-3 py-2">교육월</th>
               <th className="text-left px-3 py-2">소개인</th>
               <th className="text-left px-3 py-2">이름</th>
               <th className="text-left px-3 py-2">주민등록번호</th>
@@ -231,13 +232,15 @@ export default function RecruitsClient({
               <th className="text-left px-3 py-2">주소</th>
               <th className="text-left px-3 py-2">기본식책</th>
               <th className="text-left px-3 py-2">면접일정</th>
-              <th className="text-left px-3 py-2">교육월</th>
               <th className="px-3 py-2 w-24"></th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {filtered.map((r) => (
               <tr key={r.id} className="hover:bg-slate-50">
+                <td className="px-3 py-2 text-slate-600">
+                  {r.education_month ? formatMonth(r.education_month) : '-'}
+                </td>
                 <td className="px-3 py-2">{r.introducer ?? '-'}</td>
                 <td className="px-3 py-2 font-medium">{r.name}</td>
                 <td className="px-3 py-2 text-slate-600">{r.ssn ?? '-'}</td>
@@ -255,9 +258,6 @@ export default function RecruitsClient({
                   ) : (
                     '-'
                   )}
-                </td>
-                <td className="px-3 py-2 text-slate-600">
-                  {r.education_month ? formatMonth(r.education_month) : '-'}
                 </td>
                 <td className="px-3 py-2 text-right space-x-2">
                   <button

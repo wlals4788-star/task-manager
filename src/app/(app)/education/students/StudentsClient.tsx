@@ -34,7 +34,10 @@ const BOOL_COLS: { key: BoolField; label: string }[] = [
 export default function StudentsClient({ initial }: { initial: Student[] }) {
   const supabase = createClient();
   const [items, setItems] = useState<Student[]>(initial);
-  const [filterMonth, setFilterMonth] = useState('');
+  const [filterMonth, setFilterMonth] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  });
 
   const filtered = filterMonth
     ? items.filter((s) => s.education_month === filterMonth)
