@@ -120,6 +120,25 @@ export default function StaffTasksClient({
     await supabase.from('task_instances').delete().eq('id', inst.id);
   }
 
+  async function removeFromDetail(inst: Instance) {
+    const cascadeTemplate =
+      !!inst.template_id && (inst.kind === 'ad_hoc' || inst.kind === 'one_time');
+    const msg = cascadeTemplate
+      ? '이 업무를 삭제하시겠습니까? (담당자 업무에서 제거되고 마스터 템플릿도 함께 삭제됩니다)'
+      : inst.kind === 'regular' || inst.kind === 'standing'
+        ? '이 날짜의 업무 인스턴스만 삭제하시겠습니까? (정기/상시 템플릿은 유지되어 다음 주기에 재생성됩니다)'
+        : '삭제하시겠습니까?';
+    if (!confirm(msg)) return;
+    setItems((arr) => arr.filter((x) => x.id !== inst.id));
+    setDetail(null);
+    if (cascadeTemplate && inst.template_id) {
+      await supabase.from('task_instances').delete().eq('template_id', inst.template_id);
+      await supabase.from('task_templates').delete().eq('id', inst.template_id);
+    } else {
+      await supabase.from('task_instances').delete().eq('id', inst.id);
+    }
+  }
+
   async function saveMemo(inst: Instance, memo: string) {
     const { error } = await supabase
       .from('task_instances')
@@ -270,6 +289,7 @@ export default function StaffTasksClient({
           onClose={() => setDetail(null)}
           onSave={(memo) => saveMemo(detail, memo)}
           onToggleStatus={() => toggle(detail)}
+          onDelete={() => removeFromDetail(detail)}
         />
       )}
     </div>
@@ -579,11 +599,13 @@ function DetailDialog({
   onClose,
   onSave,
   onToggleStatus,
+  onDelete,
 }: {
   inst: Instance;
   onClose: () => void;
   onSave: (memo: string) => Promise<void>;
   onToggleStatus: () => void;
+  onDelete: () => void;
 }) {
   const [memo, setMemo] = useState(inst.memo ?? '');
   const [busy, setBusy] = useState(false);
@@ -660,6 +682,12 @@ function DetailDialog({
             </button>
           )}
           <div className="flex gap-2">
+            <button
+              onClick={onDelete}
+              className="px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 rounded-md"
+            >
+              삭제
+            </button>
             <button onClick={onClose} className="px-3 py-1.5 text-sm text-slate-600">
               취소
             </button>
