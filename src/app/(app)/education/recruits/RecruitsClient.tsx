@@ -202,7 +202,7 @@ export default function RecruitsClient({
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <h1 className="text-lg font-semibold">입사 예정자 관리</h1>
+        <h1 className="text-lg font-semibold">인적사항 관리</h1>
         <div className="flex items-center gap-2">
           <input
             type="text"

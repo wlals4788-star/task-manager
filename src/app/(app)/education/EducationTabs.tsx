@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 const tabs = [
-  { href: '/education/recruits', label: '입사 예정자 관리' },
+  { href: '/education/recruits', label: '인적사항 관리' },
   { href: '/education/students', label: '교육생 관리' },
 ];
 

@@ -93,7 +93,7 @@ export default function StudentsClient({ initial }: { initial: Student[] }) {
       </div>
 
       <p className="text-xs text-slate-500">
-        교육생은 입사 예정자 관리에서 교육월을 지정한 사람들이 자동으로 표시됩니다. 추가/수정/삭제는 입사 예정자 관리에서 진행하세요.
+        교육생은 인적사항 관리에서 교육월을 지정한 사람들이 자동으로 표시됩니다. 추가/수정/삭제는 인적사항 관리에서 진행하세요.
       </p>
 
       <div className="bg-white border border-slate-200 rounded-lg overflow-x-auto">
