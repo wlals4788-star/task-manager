@@ -100,9 +100,10 @@ export default function StudentsClient({ initial }: { initial: Student[] }) {
         <table className="w-full text-sm min-w-[900px]">
           <thead className="bg-slate-50 text-slate-600 text-xs">
             <tr>
+              <th className="text-left px-3 py-2 w-12">#</th>
+              <th className="text-left px-3 py-2">교육월</th>
               <th className="text-left px-3 py-2">이름</th>
               <th className="text-left px-3 py-2">연락처</th>
-              <th className="text-left px-3 py-2">교육월</th>
               {BOOL_COLS.map((c) => (
                 <th key={c.key} className="text-center px-3 py-2">
                   {c.label}
@@ -111,13 +112,14 @@ export default function StudentsClient({ initial }: { initial: Student[] }) {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {filtered.map((s) => (
+            {filtered.map((s, idx) => (
               <tr key={s.id} className="hover:bg-slate-50/50">
-                <td className="px-3 py-2 font-medium">{s.name}</td>
-                <td className="px-3 py-2 text-slate-600">{s.phone ?? '-'}</td>
+                <td className="px-3 py-2 text-slate-500">{idx + 1}</td>
                 <td className="px-3 py-2 text-slate-600">
                   {s.education_month ? formatMonth(s.education_month) : '-'}
                 </td>
+                <td className="px-3 py-2 font-medium">{s.name}</td>
+                <td className="px-3 py-2 text-slate-600">{s.phone ?? '-'}</td>
                 {BOOL_COLS.map((c) => {
                   const on = s[c.key];
                   return (
@@ -139,7 +141,7 @@ export default function StudentsClient({ initial }: { initial: Student[] }) {
             ))}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={BOOL_COLS.length + 3} className="px-3 py-8 text-center text-slate-500">
+                <td colSpan={BOOL_COLS.length + 4} className="px-3 py-8 text-center text-slate-500">
                   {filterMonth
                     ? `${formatMonth(filterMonth)}에 해당하는 교육생이 없습니다.`
                     : '등록된 교육생이 없습니다.'}

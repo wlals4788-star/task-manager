@@ -238,6 +238,7 @@ export default function RecruitsClient({
         <table className="w-full text-sm min-w-[1000px]">
           <thead className="bg-slate-50 text-slate-600 text-xs">
             <tr>
+              <th className="text-left px-3 py-2 w-12">#</th>
               <th className="text-left px-3 py-2">교육월</th>
               <th className="text-left px-3 py-2">소개인</th>
               <th className="text-left px-3 py-2">이름</th>
@@ -250,8 +251,9 @@ export default function RecruitsClient({
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {filtered.map((r) => (
+            {filtered.map((r, idx) => (
               <tr key={r.id} className="hover:bg-slate-50">
+                <td className="px-3 py-2 text-slate-500">{idx + 1}</td>
                 <td className="px-3 py-2 text-slate-600">
                   {r.education_month ? formatMonth(r.education_month) : '-'}
                 </td>
@@ -291,7 +293,7 @@ export default function RecruitsClient({
             ))}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={9} className="px-3 py-8 text-center text-slate-500">
+                <td colSpan={10} className="px-3 py-8 text-center text-slate-500">
                   {filterMonth
                     ? `${formatMonth(filterMonth)}에 해당하는 예정자가 없습니다.`
                     : '등록된 예정자가 없습니다.'}
